@@ -4,7 +4,7 @@ import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
-import { GameFlowController } from "../ui-shell/GameFlowController.js";
+import { GameFlowController, type GameFlowOptions } from "../ui-shell/GameFlowController.js";
 import type { FrameAssembly } from "../assemblies/types.js";
 export interface CreateGameAppOptions {
     gameId: string;
@@ -13,6 +13,7 @@ export interface CreateGameAppOptions {
     renderer: RendererAdapter;
     root: HTMLElement;
     assemblies: Array<(shell: SLUWebShell<any>) => FrameAssembly>;
+    flow?: GameFlowOptions;
 }
 export declare function createGameApp(options: CreateGameAppOptions): Promise<{
     shell: SLUWebShell<import("../index.js").CoreSettings>;
