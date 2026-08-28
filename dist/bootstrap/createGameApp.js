@@ -45,7 +45,7 @@ export async function createGameApp(options) {
         onBack: (screen) => flow.onBack(screen)
     });
     ui.register(screenModels);
-    flow = new GameFlowController(shell, ui, caps);
+    flow = new GameFlowController(shell, ui, caps, options.flow);
     const bindings = [
         { action: "ui_up", keyboard: ["ArrowUp", "KeyW"], gamepadButtons: [12] },
         { action: "ui_down", keyboard: ["ArrowDown", "KeyS"], gamepadButtons: [13] },
