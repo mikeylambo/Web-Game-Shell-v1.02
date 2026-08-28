@@ -5,6 +5,11 @@ export class ModeManager {
         for (const mode of modes)
             this.modes.set(mode.id, structuredClone(mode));
     }
+    replace(modes) {
+        this.modes.clear();
+        this.activeId = null;
+        this.register(modes);
+    }
     activate(id) {
         const mode = this.modes.get(id);
         if (!mode)
