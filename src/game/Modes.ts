@@ -19,6 +19,12 @@ export class ModeManager {
     for (const mode of modes) this.modes.set(mode.id, structuredClone(mode));
   }
 
+  replace(modes: readonly ModeDefinition[]): void {
+    this.modes.clear();
+    this.activeId = null;
+    this.register(modes);
+  }
+
   activate(id: string): ModeDefinition {
     const mode = this.modes.get(id);
     if (!mode) throw new Error(`Unknown mode: ${id}`);
