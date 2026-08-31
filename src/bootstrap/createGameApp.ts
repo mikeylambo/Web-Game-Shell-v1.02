@@ -7,7 +7,7 @@ import { SLUWebShell } from "../Shell.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
-import { GameFlowController, type GameFlowOptions } from "../ui-shell/GameFlowController.js";
+import { GameFlowController, type FlowCapabilities, type GameFlowOptions } from "../ui-shell/GameFlowController.js";
 import { capabilitiesForFrames } from "../assemblies/capabilities.js";
 import type { FrameAssembly } from "../assemblies/types.js";
 
@@ -19,6 +19,12 @@ export interface CreateGameAppOptions {
   root: HTMLElement;
   assemblies: Array<(shell: SLUWebShell<any>) => FrameAssembly>;
   flow?: GameFlowOptions;
+  /**
+   * Genre frames provide sensible defaults, but individual games can opt out of
+   * setup screens they do not actually use (for example, a one-weapon FPS with
+   * no loadout selection).
+   */
+  capabilities?: Partial<FlowCapabilities>;
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
@@ -41,7 +47,10 @@ export async function createGameApp(options: CreateGameAppOptions) {
   for (const assembly of assemblies) await composer.add(assembly);
 
   const frameIds = assemblies.map((a) => a.frame.id);
-  const caps = capabilitiesForFrames(frameIds);
+  const caps: FlowCapabilities = {
+    ...capabilitiesForFrames(frameIds),
+    ...options.capabilities
+  };
   const screenModels = createDefaultScreens({
     gameName: options.gameName,
     modes: shell.modes.list(),
