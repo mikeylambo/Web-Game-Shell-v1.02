@@ -26,7 +26,10 @@ export async function createGameApp(options) {
     for (const assembly of assemblies)
         await composer.add(assembly);
     const frameIds = assemblies.map((a) => a.frame.id);
-    const caps = capabilitiesForFrames(frameIds);
+    const caps = {
+        ...capabilitiesForFrames(frameIds),
+        ...options.capabilities
+    };
     const screenModels = createDefaultScreens({
         gameName: options.gameName,
         modes: shell.modes.list(),
