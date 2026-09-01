@@ -16,6 +16,7 @@ const out = path.resolve(get("out", `./${gameId}`));
 
 const assembly = {
   arcade: "createArcadeAssembly",
+  survivor: "createSurvivorAssembly",
   "character-action": "createCharacterActionAssembly",
   "arena-combat": "createArenaCombatAssembly",
   vehicle: "createVehicleAssembly",
