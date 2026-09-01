@@ -1,6 +1,7 @@
 export * from "./types.js";
 export * from "./helpers.js";
 export * from "./arcade.js";
+export * from "./survivor.js";
 export * from "./characterAction.js";
 export * from "./arenaCombat.js";
 export * from "./vehicle.js";
