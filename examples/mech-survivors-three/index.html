@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SLU Mech Survivors // Boost Combat Test</title>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="hud">
+      <div class="cluster left">
+        <div class="eyebrow">SLU BOOST COMBAT TEST</div>
+        <div class="meter"><span>HP</span><i id="hpFill"></i></div>
+        <div class="meter energy"><span>EN</span><i id="enFill"></i></div>
+        <div id="stateLine">STANDBY</div>
+      </div>
+      <div class="cluster center">
+        <div id="timer">04:00</div>
+        <div id="level">LV 1</div>
+        <div class="xp"><i id="xpFill"></i></div>
+      </div>
+      <div class="cluster right">
+        <div id="kills">0 KILLS</div>
+        <div id="target">NO TARGET</div>
+        <div id="density">0 HOSTILES</div>
+      </div>
+    </div>
+    <div id="reticle"><b></b></div>
+    <div id="message">WASD move · Shift Vector Burst · Space lift · Ctrl descend · E Overdrive · Q hard lock</div>
+    <div id="upgrade" class="hidden">
+      <div class="panel">
+        <div class="eyebrow">FRAME EVOLUTION</div>
+        <h1>SELECT MODULE</h1>
+        <div id="cards"></div>
+      </div>
+    </div>
+    <div id="result" class="hidden">
+      <div class="panel result-panel">
+        <div class="eyebrow">SORTIE COMPLETE</div>
+        <h1 id="resultTitle">FRAME LOST</h1>
+        <p id="resultStats"></p>
+        <button id="retry">REDEPLOY</button>
+      </div>
+    </div>
+  </body>
+</html>
