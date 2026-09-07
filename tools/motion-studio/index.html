@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SLU Motion Studio</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">SLU</span><span>MOTION STUDIO</span><span class="version">v0.1</span></div>
+      <div class="top-actions">
+        <label class="file-button">Import Character<input id="characterFile" type="file" accept=".glb,.gltf" hidden /></label>
+        <label class="file-button">Import Package<input id="packageFile" type="file" accept=".json" hidden /></label>
+        <button id="exportPackage">Export Package</button>
+        <button id="exportGodot">Godot</button>
+        <button id="exportUnity">Unity</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="panel left-panel">
+        <section>
+          <h2>Project</h2>
+          <div class="kv"><span>Character</span><strong id="characterName">None</strong></div>
+          <div class="kv"><span>Rig</span><strong id="rigStatus">Unmapped</strong></div>
+          <div class="kv"><span>Animations</span><strong id="animationCount">0</strong></div>
+        </section>
+        <section>
+          <div class="section-head"><h2>Animations</h2><button id="refreshAnimations" class="icon">↻</button></div>
+          <div id="animationList" class="list"></div>
+        </section>
+        <section>
+          <div class="section-head"><h2>Rig Map</h2><button id="autoMapRig" class="small">Auto Map</button></div>
+          <div id="rigList" class="list compact"></div>
+        </section>
+        <section>
+          <h2>Sockets</h2>
+          <div id="socketList" class="list compact"></div>
+          <div class="row"><input id="socketName" placeholder="weapon_r"/><button id="addSocket" class="small">Add</button></div>
+        </section>
+      </aside>
+
+      <section class="center-stage">
+        <div class="viewport-toolbar">
+          <div class="segmented">
+            <button class="active" data-view="motion">Motion</button>
+            <button data-view="cleanup">Cleanup</button>
+            <button data-view="state">State Graph</button>
+            <button data-view="vfx">VFX</button>
+            <button data-view="ai">AI Lab</button>
+          </div>
+          <div class="play-controls">
+            <button id="playBtn">▶</button><button id="pauseBtn">Ⅱ</button><button id="stopBtn">■</button>
+            <label>Speed <input id="speed" type="range" min="0.1" max="2" value="1" step="0.05"/></label>
+          </div>
+        </div>
+        <div id="viewport" class="viewport"><div class="drop-hint">Drop GLB/GLTF here</div></div>
+        <div class="stage-overlay" id="stageOverlay"></div>
+      </section>
+
+      <aside class="panel right-panel">
+        <div id="motionInspector" class="mode-panel active">
+          <section><h2>Motion Inspector</h2><div class="kv"><span>Clip</span><strong id="clipName">None</strong></div><div class="kv"><span>Duration</span><strong id="clipDuration">0.000s</strong></div></section>
+          <section><h2>Selected Bone</h2><select id="boneSelect"></select><div class="triple"><label>X<input id="boneX" type="number" step="0.5"/></label><label>Y<input id="boneY" type="number" step="0.5"/></label><label>Z<input id="boneZ" type="number" step="0.5"/></label></div><button id="insertBoneKey">Insert Rotation Key</button></section>
+          <section><h2>Motion Shaping</h2><label>Anticipation <input id="anticipation" type="range" min="0" max="0.25" step="0.005" value="0.05"/></label><label>Impact Hold <input id="impactHold" type="range" min="0" max="0.2" step="0.005" value="0.06"/></label><label>Recovery <input id="recovery" type="range" min="0" max="0.3" step="0.005" value="0.08"/></label><label>Root Scale <input id="rootScale" type="range" min="0" max="2" step="0.05" value="1"/></label></section>
+        </div>
+
+        <div id="cleanupInspector" class="mode-panel">
+          <section><h2>Mocap Cleanup</h2><label><input id="cleanupJitter" type="checkbox" checked/> Jitter reduction</label><label><input id="cleanupFeet" type="checkbox" checked/> Foot locking</label><label><input id="cleanupFloor" type="checkbox" checked/> Floor solve</label><label><input id="cleanupRoot" type="checkbox" checked/> Root stabilization</label><label><input id="cleanupLimits" type="checkbox"/> Joint limits</label><label>Strength <input id="cleanupStrength" type="range" min="0" max="1" value="0.65" step="0.05"/></label><button id="analyzeCleanup">Analyze Motion</button><button id="applyCleanup">Apply Cleanup Pass</button><pre id="cleanupReport"></pre></section>
+        </div>
+
+        <div id="stateInspector" class="mode-panel">
+          <section><h2>AnimationTree</h2><div class="row"><input id="stateName" placeholder="AttackHeavy"/><button id="addState" class="small">Add State</button></div><div id="stateList" class="list compact"></div><h3>Transition</h3><div class="row"><select id="stateFrom"></select><span>→</span><select id="stateTo"></select></div><label>Blend <input id="transitionBlend" type="number" value="0.08" step="0.01"/></label><button id="addTransition">Add Transition</button><div id="transitionList" class="list compact"></div><button id="generateGodotTree">Generate Godot AnimationTree</button></section>
+        </div>
+
+        <div id="vfxInspector" class="mode-panel">
+          <section><h2>Impact / VFX</h2><div class="row"><select id="vfxPrimitive"><option>arc</option><option>burst</option><option>sparks</option><option>shockwave</option><option>beam</option><option>trail</option><option>flash</option></select><button id="addVfxCue" class="small">Add Cue</button></div><label>Scale <input id="vfxScale" type="range" min="0.1" max="4" step="0.1" value="1"/></label><label>Duration <input id="vfxDuration" type="range" min="0.02" max="2" step="0.02" value="0.2"/></label><label>Intensity <input id="vfxIntensity" type="range" min="0" max="3" step="0.05" value="1"/></label><div id="vfxCueList" class="list compact"></div></section>
+        </div>
+
+        <div id="aiInspector" class="mode-panel">
+          <section><h2>Animation AI Lab</h2><textarea id="aiPrompt" rows="7" placeholder="Make this attack 20% heavier with a longer anticipation, faster contact phase, and sharper recovery."></textarea><div class="chips"><button data-ai="heavier">Heavier</button><button data-ai="faster">Faster</button><button data-ai="snappier">Snappier</button><button data-ai="launcher">Launcher</button></div><button id="runAiExperiment">Generate Suggested Changes</button><pre id="aiOutput"></pre></section>
+        </div>
+      </aside>
+    </main>
+
+    <section class="timeline-shell">
+      <div class="timeline-header"><strong>MASTER TIMELINE</strong><span id="timeReadout">0.000 / 1.000</span><button id="addMarker">+ Marker</button><button id="deleteMarker">Delete</button></div>
+      <div class="timeline-body">
+        <div class="lane-labels"><span>Animation</span><span>Hitboxes</span><span>VFX</span><span>Audio</span><span>Camera</span><span>Gameplay</span><span>Cancels</span></div>
+        <canvas id="timelineCanvas"></canvas>
+      </div>
+    </section>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
