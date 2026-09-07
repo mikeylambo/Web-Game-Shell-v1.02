@@ -4,5 +4,6 @@ export * from "./babylon/BabylonAdapter.js";
 export * from "./canvas2d/Canvas2DAdapter.js";
 export * from "./dom/DOMAdapter.js";
 export * from "./phaser/PhaserAdapter.js";
+export * from "./godot/MotionImpactGodotAdapter.js";
 
 export * from "./factories.js";
