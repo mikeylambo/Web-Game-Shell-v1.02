@@ -1,5 +1,6 @@
 export * from "./types.js";
 export * from "./SLUHumanoidRig.js";
+export * from "./rigs/CyberRoninRig.js";
 export * from "./RigTools.js";
 export * from "./RetargetPlanner.js";
 export * from "./MotionImporter.js";
