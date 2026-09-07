@@ -36,6 +36,7 @@
       "rootMotion": "extract",
       "tags": ["ronin","melee","heavy","procedural","certification"],
       "warp": {"anticipationHoldSeconds":0.05,"recoveryHoldSeconds":0.04,"rootScale":1.0},
+      "metadata": {"animationName":"SLU_HeavySlash_Procedural","proceduralRecipeId":"cyber-ronin.heavy-slash.proc-v1"},
       "markers": [
         {"id":"blade_on","at":0.28,"kind":"hitbox_on","payload":{"hitbox":"weapon_r"}},
         {"id":"trail_on","at":0.31,"kind":"vfx","recipeId":"ronin.blade.trail.heavy","payload":{"socket":"weapon_r"}},
