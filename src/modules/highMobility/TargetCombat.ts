@@ -118,7 +118,7 @@ export class TargetCombatController {
     if (!valid.length) return this.setAndReturn(null);
     const current = valid.findIndex((candidate) => candidate.id === this.hardLockId);
     const next = current < 0 ? 0 : (current + Math.sign(direction || 1) + valid.length) % valid.length;
-    return this.setAndReturn(valid[next]);
+    return this.setAndReturn(valid[next] ?? null);
   }
 
   leadAim(origin: Vec3, target: TargetCandidate, projectileSpeed: number, maxLeadSeconds = 1.2): Vec3 {
