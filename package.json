@@ -1,7 +1,7 @@
 {
   "name": "@slu/web-shell",
   "version": "1.0.2",
-  "description": "Renderer-neutral web game shell with composable genre frames and reusable game modules.",
+  "description": "Renderer-neutral web game shell with composable genre frames, reusable game modules, and portable motion/impact adapters.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +12,9 @@
     "./modules": "./dist/modules/index.js",
     "./assemblies": "./dist/assemblies/index.js",
     "./ui-shell": "./dist/ui-shell/index.js",
-    "./bootstrap": "./dist/bootstrap/index.js"
+    "./bootstrap": "./dist/bootstrap/index.js",
+    "./motion": "./dist/motion/index.js",
+    "./impact": "./dist/impact/index.js"
   },
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -21,6 +23,7 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "verify": "npm run verify:base && npm run verify:consumers",
     "create-game": "node tools/create-slu-game.mjs",
+    "motion:pack": "npm run build && node tools/slu-motion-pack.mjs",
     "verify:base": "npm run check && npm test",
     "verify:consumers": "node tools/verify-consumers.mjs"
   },
@@ -33,6 +36,11 @@
     "threejs",
     "babylonjs",
     "canvas2d",
+    "mocap",
+    "animation",
+    "vfx",
+    "godot",
+    "unity",
     "slu"
   ],
   "license": "UNLICENSED",
