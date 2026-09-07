@@ -20,6 +20,7 @@ export * from "./platform/browser/BrowserPlatform.js";
 export * from "./audio/AudioContract.js";
 export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
+export * from "./content/VisualRegistry.js";
 
 export * from "./game/Modes.js";
 export * from "./game/Objectives.js";
