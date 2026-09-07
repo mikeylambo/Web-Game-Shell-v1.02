@@ -1,0 +1,47 @@
+{
+  "schema": "slu-motion-impact",
+  "version": 1,
+  "id": "my-first-move",
+  "rigs": [],
+  "clips": [
+    {
+      "id": "move.heavy_slash",
+      "source": "imported",
+      "assetUri": "res://assets/character.glb",
+      "duration": 1.0,
+      "fps": 60,
+      "rootMotion": "extract",
+      "metadata": {
+        "animationName": "HeavySlash"
+      },
+      "markers": [
+        { "id": "hitbox_on", "at": 0.28, "kind": "hitbox_on" },
+        { "id": "trail", "at": 0.31, "kind": "vfx", "recipeId": "move.trail" },
+        { "id": "impact", "at": 0.41, "kind": "impact", "recipeId": "move.impact" },
+        { "id": "hitbox_off", "at": 0.50, "kind": "hitbox_off" },
+        { "id": "cancel_open", "at": 0.66, "kind": "cancel_open" },
+        { "id": "cancel_close", "at": 0.86, "kind": "cancel_close" }
+      ]
+    }
+  ],
+  "impacts": [
+    {
+      "id": "move.trail",
+      "duration": 0.25,
+      "cues": [
+        { "id": "trail", "at": 0.0, "channel": "vfx", "payload": { "primitive": "arc" } },
+        { "id": "swing", "at": 0.0, "channel": "audio", "payload": { "event": "weapon.swing" } }
+      ]
+    },
+    {
+      "id": "move.impact",
+      "duration": 0.35,
+      "cues": [
+        { "id": "flash", "at": 0.0, "channel": "vfx", "payload": { "primitive": "flash" } },
+        { "id": "sparks", "at": 0.01, "channel": "vfx", "payload": { "primitive": "sparks" } },
+        { "id": "sound", "at": 0.0, "channel": "audio", "payload": { "event": "weapon.impact" } },
+        { "id": "camera", "at": 0.0, "channel": "camera", "payload": { "shake": 0.25, "duration": 0.14 } }
+      ]
+    }
+  ]
+}
