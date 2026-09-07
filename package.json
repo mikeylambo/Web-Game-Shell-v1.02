@@ -22,7 +22,8 @@
     "verify": "npm run verify:base && npm run verify:consumers",
     "create-game": "node tools/create-slu-game.mjs",
     "verify:base": "npm run check && npm test",
-    "verify:consumers": "node tools/verify-consumers.mjs"
+    "verify:consumers": "node tools/verify-consumers.mjs",
+    "setup:img2threejs": "powershell -ExecutionPolicy Bypass -File tools/setup-img2threejs.ps1"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
