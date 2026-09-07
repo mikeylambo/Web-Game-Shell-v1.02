@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   SLU_HUMANOID_V1,
+  CYBER_RONIN_RIG,
   buildRigMapFromBones,
   validateRigMap,
   createRetargetPlan,
@@ -21,6 +22,14 @@ test("canonical SLU humanoid validates", () => {
   assert.equal(report.missingRequired.length, 0);
 });
 
+test("user-supplied Cyber Ronin rig validates", () => {
+  const report = validateRigMap(CYBER_RONIN_RIG);
+  assert.equal(report.valid, true);
+  assert.equal(report.missingRequired.length, 0);
+  assert.equal(report.coverage, 1);
+  assert.equal(CYBER_RONIN_RIG.humanoid.rightHand, "hand_r");
+});
+
 test("Mixamo-style bone names infer into humanoid semantics", () => {
   const bones = [
     "mixamorigHips", "mixamorigSpine", "mixamorigSpine1", "mixamorigNeck", "mixamorigHead",
@@ -35,11 +44,42 @@ test("Mixamo-style bone names infer into humanoid semantics", () => {
   assert.equal(rig.humanoid.leftHand, "mixamorigLeftHand");
 });
 
+test("Unreal-style bone names infer into humanoid semantics", () => {
+  const bones = [
+    "root", "pelvis", "spine_01", "spine_03", "spine_05", "neck_01", "head",
+    "clavicle_l", "upperarm_l", "lowerarm_l", "hand_l",
+    "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+    "thigh_l", "calf_l", "foot_l", "ball_l",
+    "thigh_r", "calf_r", "foot_r", "ball_r",
+  ];
+  const rig = buildRigMapFromBones("unreal-test", bones, "root");
+  const report = validateRigMap(rig);
+  assert.equal(report.valid, true);
+  assert.equal(report.coverage, 1);
+  assert.equal(rig.humanoid.leftUpperArm, "upperarm_l");
+  assert.equal(rig.humanoid.rightToes, "ball_r");
+});
+
 test("retarget plan binds shared semantic bones", () => {
   const plan = createRetargetPlan({ clip: { id:"x", source:"mocap", assetUri:"x.glb", duration:1 }, sourceRig: SLU_HUMANOID_V1, targetRig: SLU_HUMANOID_V1 });
   assert.equal(plan.requiredMissing.length, 0);
   assert.ok(plan.bindings.length >= 17);
   assert.equal(plan.scaleRatio, 1);
+});
+
+test("canonical motion retargets cleanly to Cyber Ronin", () => {
+  const plan = createRetargetPlan({
+    clip: { id:"slash", source:"procedural", assetUri:"slash.glb", duration:.92, targetRigId:CYBER_RONIN_RIG.id },
+    sourceRig: SLU_HUMANOID_V1,
+    targetRig: CYBER_RONIN_RIG,
+    preserveRootMotion: true,
+    preserveFootPlants: true,
+  });
+  assert.equal(plan.requiredMissing.length, 0);
+  assert.equal(plan.bindings.length, 22);
+  assert.equal(plan.scaleRatio, 1);
+  assert.equal(plan.preserveRootMotion, true);
+  assert.equal(plan.preserveFootPlants, true);
 });
 
 test("authoring session creates a valid package and binds impacts", () => {
