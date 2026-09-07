@@ -25,6 +25,7 @@ export * from "./impact/types.js";
 export * from "./impact/ImpactLibrary.js";
 export * from "./impact/ImpactPlayer.js";
 export * from "./impact/CallbackImpactAdapter.js";
+export * from "./impact/Variation.js";
 export * from "./motion/types.js";
 export * from "./motion/SLUHumanoidRig.js";
 export * from "./motion/RigTools.js";
@@ -35,6 +36,8 @@ export * from "./motion/MotionPlayer.js";
 export * from "./motion/MotionImpactBridge.js";
 export * from "./motion/MotionAuthoringSession.js";
 export * from "./motion/MotionAnalysis.js";
+export * from "./motion/MoveAsset.js";
+export * from "./motion/MotionImpactRuntime.js";
 export * from "./motion/package.js";
 
 export * from "./game/Modes.js";
