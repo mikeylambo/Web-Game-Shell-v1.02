@@ -1,0 +1,80 @@
+{
+  "schema": "slu-motion-impact",
+  "version": 1,
+  "id": "cyber-ronin-heavy-slash-certification",
+  "rigs": [
+    {
+      "id": "SLU_CyberRonin_v1",
+      "rootBone": "root",
+      "scaleMeters": 1.8,
+      "forwardAxis": "+Z",
+      "upAxis": "+Y",
+      "humanoid": {
+        "hips": "pelvis", "spine": "spine_01", "chest": "spine_03", "upperChest": "spine_05", "neck": "neck_01", "head": "head",
+        "leftShoulder": "clavicle_l", "leftUpperArm": "upperarm_l", "leftLowerArm": "lowerarm_l", "leftHand": "hand_l",
+        "rightShoulder": "clavicle_r", "rightUpperArm": "upperarm_r", "rightLowerArm": "lowerarm_r", "rightHand": "hand_r",
+        "leftUpperLeg": "thigh_l", "leftLowerLeg": "calf_l", "leftFoot": "foot_l", "leftToes": "ball_l",
+        "rightUpperLeg": "thigh_r", "rightLowerLeg": "calf_r", "rightFoot": "foot_r", "rightToes": "ball_r"
+      },
+      "sockets": [
+        {"id":"weapon_r","bone":"hand_r","tags":["weapon","right"]},
+        {"id":"fx_hand_r","bone":"hand_r","tags":["fx","right"]},
+        {"id":"fx_chest","bone":"spine_05","tags":["fx","core"]},
+        {"id":"foot_l","bone":"foot_l","tags":["foot","left"]},
+        {"id":"foot_r","bone":"foot_r","tags":["foot","right"]}
+      ]
+    }
+  ],
+  "clips": [
+    {
+      "id": "ronin.heavy_slash.motion",
+      "source": "procedural",
+      "assetUri": "assets/motion/cyber-ronin-heavy-slash.glb",
+      "duration": 0.92,
+      "fps": 60,
+      "targetRigId": "SLU_CyberRonin_v1",
+      "rootMotion": "extract",
+      "tags": ["ronin","melee","heavy","procedural","certification"],
+      "warp": {"anticipationHoldSeconds":0.05,"recoveryHoldSeconds":0.04,"rootScale":1.0},
+      "markers": [
+        {"id":"blade_on","at":0.28,"kind":"hitbox_on","payload":{"hitbox":"weapon_r"}},
+        {"id":"trail_on","at":0.31,"kind":"vfx","recipeId":"ronin.blade.trail.heavy","payload":{"socket":"weapon_r"}},
+        {"id":"impact","at":0.41,"kind":"impact","recipeId":"ronin.blade.impact.heavy","payload":{"socket":"weapon_r"}},
+        {"id":"blade_off","at":0.50,"kind":"hitbox_off","payload":{"hitbox":"weapon_r"}},
+        {"id":"foot_plant","at":0.63,"kind":"foot_plant","payload":{"foot":"left"}},
+        {"id":"cancel_open","at":0.66,"kind":"cancel_open","payload":{"into":["dash","dodge","light_attack"]}},
+        {"id":"cancel_close","at":0.86,"kind":"cancel_close"}
+      ]
+    }
+  ],
+  "impacts": [
+    {
+      "id":"ronin.blade.trail.heavy",
+      "duration":0.28,
+      "tags":["ronin","slash","trail","orange-tech"],
+      "cues":[
+        {"id":"arc","at":0,"channel":"vfx","payload":{"primitive":"arc","socket":"weapon_r","style":"ronin_orange_edge"},"variation":{"scale":[0.96,1.05],"rotationDegrees":[-5,5]}},
+        {"id":"swing","at":0,"channel":"audio","payload":{"event":"ronin.blade.swing.heavy"},"variation":{"pitch":[0.97,1.03]}}
+      ]
+    },
+    {
+      "id":"ronin.blade.impact.heavy",
+      "duration":0.42,
+      "tags":["ronin","impact","heavy","orange-tech"],
+      "cues":[
+        {"id":"core_flash","at":0,"channel":"vfx","payload":{"primitive":"flash","style":"orange_white_core"},"variation":{"scale":[0.94,1.08],"rotationDegrees":[-8,8]}},
+        {"id":"spark_burst","at":0.01,"channel":"vfx","payload":{"primitive":"sparks","style":"ronin_contact"}},
+        {"id":"ring","at":0.015,"channel":"vfx","payload":{"primitive":"shockwave","style":"ronin_orange_ring"},"minSignificance":"normal"},
+        {"id":"impact_audio","at":0,"channel":"audio","payload":{"event":"ronin.blade.impact.heavy"},"variation":{"pitch":[0.96,1.04]}},
+        {"id":"camera","at":0,"channel":"camera","payload":{"shake":0.32,"kick":0.12,"duration":0.16}},
+        {"id":"rumble","at":0,"channel":"rumble","payload":{"strength":0.7,"duration":0.12}},
+        {"id":"crit_cut","at":0.02,"channel":"vfx","payload":{"primitive":"line_burst","style":"critical_cut"},"minSignificance":"critical"}
+      ]
+    }
+  ],
+  "metadata": {
+    "targetAsset":"orange-xchain-cyber-ronin.glb",
+    "sourceAnimation":"SLU_HeavySlash_Procedural",
+    "purpose":"First real user-supplied-character vertical certification package. Procedural motion is replaceable by mocap without changing move semantics."
+  }
+}
