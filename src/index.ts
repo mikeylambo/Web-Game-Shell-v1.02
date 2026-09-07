@@ -22,8 +22,18 @@ export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
 
 export * from "./impact/types.js";
+export * from "./impact/ImpactLibrary.js";
+export * from "./impact/ImpactPlayer.js";
+export * from "./impact/CallbackImpactAdapter.js";
 export * from "./motion/types.js";
+export * from "./motion/SLUHumanoidRig.js";
+export * from "./motion/RigTools.js";
+export * from "./motion/RetargetPlanner.js";
+export * from "./motion/MotionImporter.js";
+export * from "./motion/MotionLibrary.js";
+export * from "./motion/MotionPlayer.js";
 export * from "./motion/MotionImpactBridge.js";
+export * from "./motion/package.js";
 
 export * from "./game/Modes.js";
 export * from "./game/Objectives.js";
