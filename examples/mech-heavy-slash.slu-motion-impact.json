@@ -1,0 +1,82 @@
+{
+  "schema": "slu-motion-impact",
+  "version": 1,
+  "id": "mech-heavy-slash-certification",
+  "rigs": [
+    {
+      "id": "SLU_Humanoid_v1",
+      "rootBone": "Root",
+      "scaleMeters": 1.8,
+      "forwardAxis": "+Z",
+      "upAxis": "+Y",
+      "humanoid": {
+        "hips": "Hips",
+        "spine": "Spine",
+        "chest": "Chest",
+        "upperChest": "UpperChest",
+        "neck": "Neck",
+        "head": "Head",
+        "leftShoulder": "LeftShoulder",
+        "leftUpperArm": "LeftUpperArm",
+        "leftLowerArm": "LeftLowerArm",
+        "leftHand": "LeftHand",
+        "rightShoulder": "RightShoulder",
+        "rightUpperArm": "RightUpperArm",
+        "rightLowerArm": "RightLowerArm",
+        "rightHand": "RightHand",
+        "leftUpperLeg": "LeftUpperLeg",
+        "leftLowerLeg": "LeftLowerLeg",
+        "leftFoot": "LeftFoot",
+        "rightUpperLeg": "RightUpperLeg",
+        "rightLowerLeg": "RightLowerLeg",
+        "rightFoot": "RightFoot"
+      }
+    }
+  ],
+  "clips": [
+    {
+      "id": "mech.heavy_slash.motion",
+      "source": "mocap",
+      "assetUri": "assets/mocap/mech-heavy-slash.normalized.glb",
+      "duration": 0.92,
+      "fps": 60,
+      "targetRigId": "SLU_Humanoid_v1",
+      "rootMotion": "extract",
+      "tags": ["mech", "melee", "heavy", "certification"],
+      "markers": [
+        { "id": "blade_on", "at": 0.28, "kind": "hitbox_on", "payload": { "hitbox": "weapon_r" } },
+        { "id": "trail_on", "at": 0.31, "kind": "vfx", "recipeId": "mech.blade.trail.heavy", "payload": { "socket": "weapon_r" } },
+        { "id": "impact", "at": 0.41, "kind": "impact", "recipeId": "mech.blade.impact.heavy", "payload": { "socket": "weapon_r" } },
+        { "id": "blade_off", "at": 0.5, "kind": "hitbox_off", "payload": { "hitbox": "weapon_r" } },
+        { "id": "foot_plant", "at": 0.63, "kind": "foot_plant", "payload": { "foot": "left" } }
+      ]
+    }
+  ],
+  "impacts": [
+    {
+      "id": "mech.blade.trail.heavy",
+      "duration": 0.28,
+      "tags": ["mech", "slash", "trail"],
+      "cues": [
+        { "id": "slash_arc", "at": 0, "channel": "vfx", "payload": { "primitive": "arc", "socket": "weapon_r", "style": "energy_heavy" } },
+        { "id": "servo", "at": 0, "channel": "audio", "payload": { "event": "mech.blade.swing.heavy" }, "variation": { "pitch": [0.97, 1.03] } }
+      ]
+    },
+    {
+      "id": "mech.blade.impact.heavy",
+      "duration": 0.42,
+      "tags": ["mech", "impact", "heavy"],
+      "cues": [
+        { "id": "core_flash", "at": 0, "channel": "vfx", "payload": { "primitive": "flash", "style": "white_core" }, "variation": { "scale": [0.94, 1.08], "rotationDegrees": [-8, 8] } },
+        { "id": "spark_burst", "at": 0.01, "channel": "vfx", "payload": { "primitive": "sparks", "style": "mech_contact" } },
+        { "id": "impact_audio", "at": 0, "channel": "audio", "payload": { "event": "mech.blade.impact.heavy" }, "variation": { "pitch": [0.96, 1.04] } },
+        { "id": "camera", "at": 0, "channel": "camera", "payload": { "shake": 0.32, "kick": 0.12, "duration": 0.16 }, "minSignificance": "normal" },
+        { "id": "rumble", "at": 0, "channel": "rumble", "payload": { "strength": 0.7, "duration": 0.12 } },
+        { "id": "crit_shockwave", "at": 0.015, "channel": "vfx", "payload": { "primitive": "shockwave", "style": "critical" }, "minSignificance": "critical" }
+      ]
+    }
+  ],
+  "metadata": {
+    "purpose": "First vertical certification asset for the SLU mocap -> motion -> impact -> engine adapter pipeline."
+  }
+}
