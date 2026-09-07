@@ -1,0 +1,29 @@
+name: Motion Studio CI
+
+on:
+  push:
+    branches: [feat/slu-impact-motion-adapter]
+    paths:
+      - 'tools/motion-studio/**'
+      - '.github/workflows/motion-studio-ci.yml'
+  pull_request:
+    paths:
+      - 'tools/motion-studio/**'
+
+jobs:
+  build-studio:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/motion-studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/motion-studio/package-lock.json
+      - name: Install
+        run: npm install
+      - name: Build
+        run: npm run build
