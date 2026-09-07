@@ -24,6 +24,7 @@
     "verify": "npm run verify:base && npm run verify:consumers",
     "create-game": "node tools/create-slu-game.mjs",
     "motion:pack": "npm run build && node tools/slu-motion-pack.mjs",
+    "motion:godot-install": "node tools/install-slu-motion-godot.mjs",
     "verify:base": "npm run check && npm test",
     "verify:consumers": "node tools/verify-consumers.mjs"
   },
