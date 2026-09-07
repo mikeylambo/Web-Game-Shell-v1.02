@@ -6,6 +6,7 @@ export type FrameId =
   | "character-action"
   | "arena-combat"
   | "high-mobility-combat"
+  | "survivor"
   | "vehicle"
   | "fps"
   | "puzzle"
