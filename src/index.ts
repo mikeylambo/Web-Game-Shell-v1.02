@@ -21,6 +21,10 @@ export * from "./audio/AudioContract.js";
 export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
 
+export * from "./impact/types.js";
+export * from "./motion/types.js";
+export * from "./motion/MotionImpactBridge.js";
+
 export * from "./game/Modes.js";
 export * from "./game/Objectives.js";
 export * from "./game/Challenges.js";
