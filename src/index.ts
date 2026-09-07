@@ -28,6 +28,7 @@ export * from "./impact/CallbackImpactAdapter.js";
 export * from "./impact/Variation.js";
 export * from "./motion/types.js";
 export * from "./motion/SLUHumanoidRig.js";
+export * from "./motion/rigs/CyberRoninRig.js";
 export * from "./motion/RigTools.js";
 export * from "./motion/RetargetPlanner.js";
 export * from "./motion/MotionImporter.js";
