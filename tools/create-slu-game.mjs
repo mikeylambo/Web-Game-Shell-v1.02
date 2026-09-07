@@ -34,7 +34,6 @@ const adapter = {
   dom: "createDOMStarterAdapter"
 };
 
-
 if (!adapter[renderer]) {
   console.error(`Unknown renderer: ${renderer}`);
   process.exit(1);
@@ -56,14 +55,18 @@ const rendererLine =
  : `const rendererAdapter = ${adapter[renderer]}(document.getElementById("game-canvas") as HTMLCanvasElement);`;
 
 const imports = [...selected, adapter[renderer]].join(",\n  ");
+const proceduralImport = renderer === "three"
+  ? `import { bootProceduralVisualManifest } from "./art/procedural/visualManifest";\n`
+  : "";
+const proceduralBoot = renderer === "three" ? `\nbootProceduralVisualManifest();\n` : "";
 
-fs.writeFileSync(path.join(out, "src/main.ts"), `import {
+fs.writeFileSync(path.join(out, "src/main.ts"), `${proceduralImport}import {
   createGameApp,
   ${imports}
 } from "@slu/web-shell";
 
 ${rendererLine}
-
+${proceduralBoot}
 const app = await createGameApp({
   gameId: "${gameId}",
   gameName: "${gameName}",
@@ -77,6 +80,88 @@ const app = await createGameApp({
 
 console.log("SLU game ready", app);
 `);
+
+if (renderer === "three") {
+  const proceduralDir = path.join(out, "src", "art", "procedural");
+  const modelsDir = path.join(proceduralDir, "models");
+  fs.mkdirSync(modelsDir, { recursive: true });
+
+  fs.writeFileSync(path.join(proceduralDir, "ProceduralVisualRegistry.ts"), `import * as THREE from "three";
+import { createVisualRegistry, type VisualRegistration } from "@slu/web-shell";
+
+export interface ProceduralVisualContext {
+  key: string;
+  anchor?: THREE.Object3D;
+  metadata?: Readonly<Record<string, unknown>>;
+}
+
+export type ProceduralVisualRegistration = VisualRegistration<THREE.Group, ProceduralVisualContext>;
+export const proceduralVisuals = createVisualRegistry<THREE.Group, ProceduralVisualContext>();
+
+export function registerProceduralVisual(key: string, registration: ProceduralVisualRegistration): void {
+  proceduralVisuals.register(key, registration);
+}
+
+export function replaceProceduralVisual(key: string, registration: ProceduralVisualRegistration): void {
+  proceduralVisuals.replace(key, registration);
+}
+`);
+
+  fs.writeFileSync(path.join(proceduralDir, "attachProceduralVisual.ts"), `import * as THREE from "three";
+import { proceduralVisuals, type ProceduralVisualContext } from "./ProceduralVisualRegistry";
+
+export function attachProceduralVisual(
+  anchor: THREE.Object3D,
+  key: string,
+  metadata?: Readonly<Record<string, unknown>>
+): THREE.Group | null {
+  const context: ProceduralVisualContext = { key, anchor, metadata };
+  const instance = proceduralVisuals.create(key, context);
+  if (!instance) return null;
+  const visual = instance.visual;
+  visual.userData.sluPresentationOnly = true;
+  visual.userData.sluVisualKey = key;
+  visual.userData.sluVisualInstance = instance;
+  visual.traverse((child) => {
+    child.userData.sluPresentationOnly = true;
+    child.userData.sluVisualKey = key;
+  });
+  anchor.add(visual);
+  return visual;
+}
+
+export function detachProceduralVisual(visual: THREE.Object3D): void {
+  const instance = visual.userData.sluVisualInstance as { dispose?: () => void } | undefined;
+  instance?.dispose?.();
+  visual.removeFromParent();
+  visual.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.geometry?.dispose();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    for (const material of materials) material.dispose();
+  });
+}
+`);
+
+  fs.writeFileSync(path.join(proceduralDir, "visualManifest.ts"), `import { proceduralVisuals } from "./ProceduralVisualRegistry";
+
+/**
+ * Single registration point for approved image-to-Three.js assets.
+ * Put generated factories under ./models and register stable keys here.
+ */
+export function bootProceduralVisualManifest(): void {
+  if (import.meta.env.DEV && proceduralVisuals.keys().length > 0) {
+    console.info("SLU procedural visuals", proceduralVisuals.keys());
+  }
+}
+`);
+
+  fs.writeFileSync(path.join(modelsDir, "README.md"), `# Procedural models
+
+Put approved img2threejs-style THREE.Group factories here, then register them in ../visualManifest.ts.
+Keep gameplay collision and authoritative state outside presentation geometry.
+`);
+}
 
 fs.writeFileSync(path.join(out, "index.html"), `<!doctype html>
 <html>
@@ -96,14 +181,21 @@ fs.writeFileSync(path.join(out, "index.html"), `<!doctype html>
 </body>
 </html>`);
 
+const dependencies = { "@slu/web-shell": "^1.0.0" };
+const devDependencies = { typescript: "^5.8.3", vite: "^7.0.0" };
+if (renderer === "three") {
+  dependencies.three = "^0.180.0";
+  devDependencies["@types/three"] = "^0.180.0";
+}
+
 fs.writeFileSync(path.join(out, "package.json"), JSON.stringify({
   name: gameId,
   private: true,
   version: "0.1.0",
   type: "module",
   scripts: { dev: "vite", build: "vite build", check: "tsc --noEmit" },
-  dependencies: { "@slu/web-shell": "^1.0.0" },
-  devDependencies: { typescript: "^5.8.3", vite: "^7.0.0" }
+  dependencies,
+  devDependencies
 }, null, 2));
 
 fs.writeFileSync(path.join(out, "tsconfig.json"), JSON.stringify({
@@ -124,7 +216,7 @@ Frames: ${frames.join(", ")}
 The game already boots through Title → Main Menu → Mode flow with keyboard/gamepad UI,
 settings/pause/results screens, persistence, input, and the modules supplied by its Frames.
 
-Replace the starter renderer hooks and placeholder content selections with Game DNA.
+${renderer === "three" ? "Three.js games also include an image-to-procedural-visual registry and manifest under src/art/procedural/.\n\n" : ""}Replace the starter renderer hooks and placeholder content selections with Game DNA.
 `);
 
 console.log(`Created ${gameName} at ${out}`);
