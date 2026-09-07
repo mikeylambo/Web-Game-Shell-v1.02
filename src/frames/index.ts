@@ -2,6 +2,7 @@ export * from "./types.js";
 export * from "./arcade.js";
 export * from "./characterAction.js";
 export * from "./arenaCombat.js";
+export * from "./highMobilityCombat.js";
 export * from "./vehicle.js";
 export * from "./fps.js";
 export * from "./puzzle.js";
