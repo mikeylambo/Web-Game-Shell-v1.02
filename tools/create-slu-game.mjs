@@ -18,6 +18,8 @@ const assembly = {
   arcade: "createArcadeAssembly",
   "character-action": "createCharacterActionAssembly",
   "arena-combat": "createArenaCombatAssembly",
+  "high-mobility-combat": "createHighMobilityCombatAssembly",
+  survivor: "createSurvivorAssembly",
   vehicle: "createVehicleAssembly",
   fps: "createFPSAssembly",
   puzzle: "createPuzzleAssembly",
@@ -201,7 +203,7 @@ fs.writeFileSync(path.join(out, "package.json"), JSON.stringify({
 fs.writeFileSync(path.join(out, "tsconfig.json"), JSON.stringify({
   compilerOptions: {
     target: "ES2022", module: "ES2022", moduleResolution: "Bundler",
-    lib: ["ES2022","DOM"], strict: true, skipLibCheck: true
+    lib: ["ES2022","DOM"], types: ["vite/client"], strict: true, skipLibCheck: true
   },
   include: ["src/**/*.ts"]
 }, null, 2));

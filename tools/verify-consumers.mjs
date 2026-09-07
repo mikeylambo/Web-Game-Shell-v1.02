@@ -6,7 +6,6 @@ import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
 const generator = path.join(root, "tools", "create-slu-game.mjs");
-const distPackage = root;
 const renderers = ["three", "babylon", "phaser", "canvas2d", "dom"];
 
 function run(command, args, options = {}) {
@@ -33,25 +32,15 @@ try {
       "--out", out
     ]);
 
-    const nodeModules = path.join(out, "node_modules");
-    const scopeDir = path.join(nodeModules, "@slu");
-    fs.mkdirSync(scopeDir, { recursive: true });
+    // Verify the generated package exactly as a real consumer would install it,
+    // while resolving the shell to this checkout instead of a published package.
+    const packagePath = path.join(out, "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    packageJson.dependencies["@slu/web-shell"] = `file:${root}`;
+    fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
-    const linkTarget = path.join(scopeDir, "web-shell");
-    try {
-      fs.symlinkSync(distPackage, linkTarget, process.platform === "win32" ? "junction" : "dir");
-    } catch {
-      // Fallback for environments where symlink creation is restricted.
-      fs.cpSync(distPackage, linkTarget, {
-        recursive: true,
-        filter: (src) =>
-          !src.includes(`${path.sep}node_modules${path.sep}`) &&
-          !src.includes(`${path.sep}.git${path.sep}`)
-      });
-    }
-
-    // Use the shell repository's compiler so consumer verification adds no new install step.
-    run("tsc", ["-p", path.join(out, "tsconfig.json"), "--noEmit"], { cwd: out });
+    run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], { cwd: out });
+    run("npm", ["run", "check"], { cwd: out });
 
     console.log(`PASS consumer: ${renderer}`);
   }

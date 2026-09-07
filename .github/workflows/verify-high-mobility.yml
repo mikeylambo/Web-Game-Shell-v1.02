@@ -1,0 +1,34 @@
+name: Verify High Mobility Combat
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/high-mobility-combat-frame
+
+jobs:
+  verify-shell-and-mech-survivors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install shell dependencies
+        run: npm install
+
+      - name: Verify shell
+        run: npm run verify
+
+      - name: Install Mech Survivors prototype dependencies
+        working-directory: examples/mech-survivors-three
+        run: npm install
+
+      - name: Build Mech Survivors prototype
+        working-directory: examples/mech-survivors-three
+        run: npm run build

@@ -18,3 +18,4 @@ export * from "./dialogue/DialogueManager.js";
 export * from "./quests/QuestManager.js";
 export * from "./moves/MoveList.js";
 export * from "./speed/SimulationSpeed.js";
+export * from "./highMobility/index.js";

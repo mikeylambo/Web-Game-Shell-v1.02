@@ -5,6 +5,8 @@ export type FrameId =
   | "arcade"
   | "character-action"
   | "arena-combat"
+  | "high-mobility-combat"
+  | "survivor"
   | "vehicle"
   | "fps"
   | "puzzle"

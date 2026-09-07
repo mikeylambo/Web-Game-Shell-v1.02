@@ -1,0 +1,19 @@
+{
+  "name": "slu-mech-survivors-three",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "npm run check && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.1.7"
+  }
+}
