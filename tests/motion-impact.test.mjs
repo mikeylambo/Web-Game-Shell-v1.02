@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   SLU_HUMANOID_V1,
   CYBER_RONIN_RIG,
@@ -126,4 +127,20 @@ test("Godot and Unity adapters emit engine artifacts", () => {
   assert.ok(unity.some((a) => a.path.endsWith(".cs")));
   assert.ok(godot.some((a) => a.kind === "manifest"));
   assert.ok(unity.some((a) => a.kind === "manifest"));
+});
+
+test("Cyber Ronin certification package validates and preserves markers in adapters", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../examples/cyber-ronin-heavy-slash.slu-motion-impact.json", import.meta.url), "utf8"));
+  const report = validateMotionImpactPackage(pkg);
+  assert.equal(report.valid, true, JSON.stringify(report.issues));
+  assert.equal(pkg.clips[0].targetRigId, CYBER_RONIN_RIG.id);
+  assert.ok(pkg.clips[0].markers.some((marker) => marker.kind === "impact"));
+  assert.ok(pkg.clips[0].markers.some((marker) => marker.kind === "cancel_open"));
+
+  const godot = new GodotMotionImpactAdapter().exportPackage(pkg);
+  const unity = new UnityMotionImpactAdapter().exportPackage(pkg);
+  const godotTracks = JSON.parse(godot.find((a) => a.path.endsWith("motion-marker-tracks.json")).content);
+  const unityEvents = JSON.parse(unity.find((a) => a.path.endsWith("motion-marker-events.json")).content);
+  assert.equal(godotTracks["ronin.heavy_slash.motion"].length, pkg.clips[0].markers.length);
+  assert.equal(unityEvents["ronin.heavy_slash.motion"].length, pkg.clips[0].markers.length);
 });
