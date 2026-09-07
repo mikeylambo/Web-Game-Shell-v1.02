@@ -8,4 +8,6 @@ export * from "./MotionPlayer.js";
 export * from "./MotionImpactBridge.js";
 export * from "./MotionAuthoringSession.js";
 export * from "./MotionAnalysis.js";
+export * from "./MoveAsset.js";
+export * from "./MotionImpactRuntime.js";
 export * from "./package.js";
