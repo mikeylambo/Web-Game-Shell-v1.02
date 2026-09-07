@@ -33,6 +33,8 @@ export * from "./motion/MotionImporter.js";
 export * from "./motion/MotionLibrary.js";
 export * from "./motion/MotionPlayer.js";
 export * from "./motion/MotionImpactBridge.js";
+export * from "./motion/MotionAuthoringSession.js";
+export * from "./motion/MotionAnalysis.js";
 export * from "./motion/package.js";
 
 export * from "./game/Modes.js";
