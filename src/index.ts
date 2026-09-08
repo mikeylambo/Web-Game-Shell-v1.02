@@ -17,12 +17,14 @@ export * from "./platform/browser/BrowserStorage.js";
 export * from "./platform/browser/IndexedDBStorage.js";
 export * from "./platform/browser/BrowserInputSource.js";
 export * from "./platform/browser/BrowserPlatform.js";
+export * from "./platform/browser/BrowserLifecycle.js";
 export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
 export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
 export * from "./content/VisualRegistry.js";
+export * from "./content/DataContent.js";
 export * from "./assets/AssetManifest.js";
 
 export * from "./game/Modes.js";
@@ -52,17 +54,10 @@ export * from "./studio/StudioServices.js";
 
 export * from "./adapters/index.js";
 export * from "./frames/index.js";
-
 export * from "./modules/index.js";
-
 export * from "./assemblies/index.js";
-
 export * from "./assemblies/AssemblyComposer.js";
-
 export * from "./generator/index.js";
-
 export * from "./ui-shell/index.js";
-
 export * from "./bootstrap/index.js";
-
 export * from "./assemblies/capabilities.js";
