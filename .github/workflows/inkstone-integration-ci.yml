@@ -55,6 +55,22 @@ jobs:
         working-directory: consumers/inkstone
         run: npm run test:platform
 
+      - name: Prove release certification contract
+        working-directory: consumers/inkstone
+        run: npm run test:certification
+
       - name: Build Inkstone against live private Shell
         working-directory: consumers/inkstone
         run: npm run build
+
+      - name: Certify production bundle
+        working-directory: consumers/inkstone
+        run: npm run certify:build
+
+      - name: Package V0.5 major-playtest build
+        uses: actions/upload-artifact@v4
+        with:
+          name: inkstone-v0.5-major-playtest-${{ github.sha }}
+          path: consumers/inkstone/dist
+          if-no-files-found: error
+          retention-days: 14
