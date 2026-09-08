@@ -8,15 +8,15 @@ import {
   mountBrowserDevConsole,
 } from '@slu/web-shell';
 import { InkstonePersistenceBridge } from './persistence.js';
+import { InkstoneNavigationCoordinator, auditNavigationGraph } from './navigation.js';
 
 /**
  * V0.5 migration rule: move ownership across the seam only after parity.
  *
- * Inkstone's existing Game remains authoritative for player-facing app state,
- * semantic gameplay input, fixed-step simulation, rendering and combat. The
- * Shell owns production services, browser/presentation lifecycle, save safety
- * and the authoritative mirrored settings stores around Inkstone's compatible
- * legacy localStorage surface.
+ * Inkstone's existing DOM screens and MenuNav remain the presentation/focus
+ * adapters. The Shell owns the legal app-flow graph, production services,
+ * browser/presentation lifecycle, save recovery and mirrored settings. Combat,
+ * simulation and rendering remain untouched behind the parity lock.
  */
 
 const SHELL_NAMESPACE = 'inkstone-v05';
@@ -66,12 +66,16 @@ export class InkstoneShellBridge {
     this.storage = null;
     this.settings = null;
     this.persistence = null;
+    this.navigation = null;
     this.devConsole = null;
     this.ready = false;
     this.lastGameState = 'BOOT';
     this.presentationSuspended = false;
     this.browserLifecycleAttached = false;
     this.lifecycleDisposers = [];
+    this.gamePrototype = null;
+    this.legacyGameSetState = null;
+    this.navigationGuard = null;
   }
 
   async boot() {
@@ -80,7 +84,6 @@ export class InkstoneShellBridge {
     await this.settings.load();
 
     // Three.js scene/render-loop ownership deliberately stays in src/main.js.
-    // Browser/presentation lifecycle is handled by this integration bridge.
     const rendererAdapter = {
       id: 'inkstone-three-parity',
       start() {},
@@ -95,7 +98,7 @@ export class InkstoneShellBridge {
         gameId: 'inkstone',
         gameName: 'INKSTONE',
         version: this.version,
-        build: 'v0.5-persistence',
+        build: 'v0.5-navigation',
       },
       renderer: rendererAdapter,
       settings: this.settings,
@@ -116,10 +119,50 @@ export class InkstoneShellBridge {
     const recovery = await this.persistence.boot();
     await this.rehydratePersistenceConsumers(recovery);
 
+    this.navigation = new InkstoneNavigationCoordinator({
+      initial: this.lastGameState,
+      onEvent: (name, payload) => this.event(name, payload),
+      onRejected: (rejection) => this.navigationRejected(rejection),
+    });
+    await this.installNavigationAuthority();
+
     this.installInkstoneStudioSurface();
     this.ready = true;
     this.syncState(this.lastGameState, 'BOOT');
     return this;
+  }
+
+  async installNavigationAuthority() {
+    const { Game } = await import('../game.js');
+    const prototype = Game.prototype;
+
+    if (prototype.setState?.__inkstoneShellNavigationGuard) {
+      throw new Error('Inkstone Shell navigation guard is already installed.');
+    }
+
+    this.gamePrototype = prototype;
+    this.legacyGameSetState = prototype.setState;
+    const bridge = this;
+
+    const guardedSetState = function guardedSetState(next) {
+      const verdict = bridge.navigation.request(next, { reason: 'game.setState' });
+      if (!verdict.ok) return this.state;
+      return bridge.legacyGameSetState.call(this, next);
+    };
+    guardedSetState.__inkstoneShellNavigationGuard = true;
+    prototype.setState = guardedSetState;
+    this.navigationGuard = guardedSetState;
+    this.event('navigation.authority-installed', { audit: auditNavigationGraph() });
+  }
+
+  uninstallNavigationAuthority() {
+    if (!this.gamePrototype || !this.legacyGameSetState) return;
+    if (this.gamePrototype.setState === this.navigationGuard) {
+      this.gamePrototype.setState = this.legacyGameSetState;
+    }
+    this.gamePrototype = null;
+    this.legacyGameSetState = null;
+    this.navigationGuard = null;
   }
 
   async rehydratePersistenceConsumers(recovery) {
@@ -150,9 +193,10 @@ export class InkstoneShellBridge {
     studio.dev.registerPanel('Inkstone', {
       description: 'Parity and ownership view during the V0.5 Shell migration',
       read: () => ({
-        migrationMode: 'parity-first-persistence',
+        migrationMode: 'parity-first-navigation',
         gameState: this.lastGameState,
         shellPhase: this.shell.session.phase,
+        navigation: this.navigation?.status() || null,
         presentationSuspended: this.presentationSuspended,
         browserLifecycleAttached: this.browserLifecycleAttached,
         persistence: this.persistence?.status() || null,
@@ -171,17 +215,29 @@ export class InkstoneShellBridge {
     studio.dev.register('inkstone.migration', {
       description: 'Show V0.5 Shell migration ownership status',
       run: () => JSON.stringify({
-        mode: 'parity-first-persistence',
-        legacyOwns: ['app-flow', 'gameplay-input', 'fixed-step-sim', 'renderer', 'combat'],
+        mode: 'parity-first-navigation',
+        legacyOwns: ['screen-presentation', 'menu-focus', 'gameplay-input', 'fixed-step-sim', 'renderer', 'combat'],
         shellOwns: [
+          'app-flow-graph', 'semantic-screen-history',
           'assemblies', 'studio-services', 'telemetry', 'diagnostics',
           'browser-focus-lifecycle', 'presentation-suspend',
           'save-backup-recovery', 'settings-mirroring',
         ],
         mirrored: ['game-phase', 'run-lifecycle', 'legacy-save-keys'],
+        navigation: this.navigation?.status() || null,
         presentationSuspended: this.presentationSuspended,
         persistence: this.persistence?.status() || null,
       }, null, 2),
+    });
+
+    studio.dev.register('inkstone.navigation.status', {
+      description: 'Show Shell-owned navigation graph, history and rejected transitions',
+      run: async () => JSON.stringify(await this.navigation?.flush(), null, 2),
+    });
+
+    studio.dev.register('inkstone.navigation.audit', {
+      description: 'Audit the Inkstone V0.5 app-flow graph',
+      run: () => JSON.stringify(auditNavigationGraph(), null, 2),
     });
 
     studio.dev.register('inkstone.save.status', {
@@ -208,6 +264,7 @@ export class InkstoneShellBridge {
     return {
       gameState: this.lastGameState,
       shellPhase: this.shell?.session?.phase || 'unavailable',
+      navigationState: this.navigation?.current || null,
       presentationSuspended: this.presentationSuspended,
       persistenceRecovery: this.persistence?.lastRecovery || null,
       ...snap,
@@ -217,6 +274,16 @@ export class InkstoneShellBridge {
   syncState(next, prev = this.lastGameState) {
     this.lastGameState = next || this.lastGameState;
     if (!this.shell) return;
+
+    // The navigation guard normally moved first. This resync is a diagnostic
+    // safety net for any state assignment that bypassed Game.setState.
+    if (this.navigation && this.navigation.current !== this.lastGameState) {
+      this.event('navigation.desync', {
+        coordinator: this.navigation.current,
+        game: this.lastGameState,
+      });
+      this.navigation.sync(this.lastGameState, 'game-state-resync');
+    }
 
     // PAUSE is a full presentation pause. WAVE_CHOICE deliberately shares the
     // Shell's paused phase but keeps presentation audio alive: it is gameplay,
@@ -237,6 +304,17 @@ export class InkstoneShellBridge {
       presentationSuspended: this.presentationSuspended,
     });
     void this.persistence?.queueSnapshot(`state:${this.lastGameState}`);
+  }
+
+  navigationRejected(rejection) {
+    this.event('navigation.rejected', safeJson(rejection) || {});
+    const message = rejection?.error instanceof Error
+      ? rejection.error.message
+      : `Rejected Inkstone transition ${rejection?.from || '?'} -> ${rejection?.to || '?'}`;
+    this.shell?.studio?.diagnostics?.capture?.(new Error(message), {
+      scope: 'inkstone.navigation',
+      rejection: safeJson(rejection),
+    });
   }
 
   suspendPresentation(reason = 'unspecified') {
@@ -349,6 +427,7 @@ export class InkstoneShellBridge {
 
   async dispose() {
     this.detachBrowserLifecycle();
+    this.uninstallNavigationAuthority();
     try { await this.persistence?.queueSnapshot('dispose'); } catch { /* diagnostics already record failures */ }
     this.devConsole?.dispose();
     this.devConsole = null;
