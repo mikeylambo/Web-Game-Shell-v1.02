@@ -2,8 +2,8 @@
  * INKSTONE — entry point.
  *
  * Fixed-timestep sim (60 Hz) decoupled from render, hit-stop that freezes the
- * world in whole sim steps. What state the app is in — title, run, results —
- * belongs to Game (game.js); this file owns the renderer and the loop.
+ * world in whole sim steps. Combat/rendering stay here; browser release
+ * services, app-flow and production infrastructure cross the V0.5 Shell seam.
  */
 import './style.css';
 import * as THREE from 'three';
@@ -25,7 +25,7 @@ import { Game, STATE, devMode } from './game.js';
 import { Profile } from './profile.js';
 import { PlayerOptions, Hooks } from './playeroptions.js';
 import { migrateOnce } from './storage.js';
-import { createInkstoneShellBridge } from './shell/bridge.js';
+import { createInkstoneReleaseRuntime } from './shell/release.js';
 import {
   suspendPresentationAudio,
   resumePresentationAudio,
@@ -126,18 +126,25 @@ PlayerOptions.load();
 
 // --------------------------------------------------------- V0.5 Shell seam
 //
-// The modern SLU Shell boots beside the existing Game. Game remains the
-// authority for app state and simulation; the bridge owns production services
-// and browser/presentation lifecycle without entering combat code.
+// Shell owns app-flow, persistence, lifecycle and browser release services.
+// Three.js rendering, fixed-step simulation and combat stay on the protected
+// Inkstone side of the seam.
 
 const paritySnapshot = () => captureParitySnapshot({ game, World, TUNING });
 let shellBridge = null;
 
 try {
-  shellBridge = await createInkstoneShellBridge({
+  shellBridge = await createInkstoneReleaseRuntime({
     version: VERSION,
     dev: devMode(),
     snapshot: paritySnapshot,
+    canvas: renderer.domElement,
+    onResize: (width, height) => {
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    },
+    onReturnToTitle: () => game.toTitle(),
     lifecycle: {
       // Browser blur/hidden uses the exact same pause path as a player pressing
       // pause, preserving PauseMenu input clearing and Game state semantics.
@@ -150,7 +157,8 @@ try {
     },
   });
 
-  // Mirror legacy state into the Shell without changing legacy behavior.
+  // Mirror actual Game state after the Shell-owned transition graph approves
+  // the transition. This wrapper does not decide whether the move is legal.
   const legacySetState = game.setState.bind(game);
   game.setState = (next) => {
     const prev = game.state;
@@ -181,13 +189,13 @@ try {
     return result;
   };
 
-  // Install focus/visibility listeners only after the state wrapper exists, so
-  // every browser-triggered pause is mirrored and presentation-suspended.
+  // Focus/visibility pause listeners remain a Shell service and are installed
+  // after state mirroring so browser-triggered pauses are fully observable.
   shellBridge.attachBrowserLifecycle();
 } catch (error) {
-  // During the migration the old game remains a safe fallback. A Shell boot
-  // failure should be visible to developers, not prevent a combat parity test.
-  console.error('[INKSTONE V0.5] Shell lifecycle boot failed; legacy authority retained.', error);
+  // During the migration the old game remains a safe fallback. A release
+  // service boot failure should be visible to developers, not prevent combat.
+  console.error('[INKSTONE V0.5] Shell release runtime failed; protected game authority retained.', error);
 }
 
 // ------------------------------------------------------------------ audio
@@ -309,12 +317,6 @@ function frame(now) {
   World.debug.frameMs = performance.now() - frameStart;
 }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
 window.addEventListener('beforeunload', () => {
   if (shellBridge) void shellBridge.dispose();
 });
@@ -330,6 +332,7 @@ const HARNESS = {
   game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode, inkCanvas,
   shellBridge,
   shell: shellBridge?.shell || null,
+  platform: shellBridge?.platform || null,
 
   /** V0.5 migration truth: seed/run/canvas facts that must survive Shell work. */
   paritySnapshot,
