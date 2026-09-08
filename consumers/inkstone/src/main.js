@@ -1,0 +1,331 @@
+/**
+ * INKSTONE — entry point.
+ *
+ * Fixed-timestep sim (60 Hz) decoupled from render, hit-stop that freezes the
+ * world in whole sim steps. What state the app is in — title, run, results —
+ * belongs to Game (game.js); this file owns the renderer and the loop.
+ */
+import './style.css';
+import * as THREE from 'three';
+
+import { TUNING } from './tuning.js';
+import { World } from './world.js';
+import { Rng, getSeedFromUrl } from './rng.js';
+import { Input } from './input.js';
+import { Audio } from './audio.js';
+import { Fx } from './gfx/fx.js';
+import { createArena } from './gfx/arena.js';
+import { InkCanvas } from './gfx/inkcanvas.js';
+import { CameraRig } from './camera.js';
+import { Player } from './entities/player.js';
+import { Hud } from './hud.js';
+import { Debug } from './debug.js';
+import { PauseMenu } from './pause.js';
+import { Game, STATE, devMode } from './game.js';
+import { Profile } from './profile.js';
+import { PlayerOptions, Hooks } from './playeroptions.js';
+import { migrateOnce } from './storage.js';
+import { createInkstoneShellBridge } from './shell/bridge.js';
+import {
+  captureParitySnapshot,
+  compareParitySnapshots,
+  parityFingerprint,
+} from './shell/parity.js';
+
+// Build version, injected from package.json by vite.config.js
+const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+document.title = `INKSTONE — V${VERSION}`;
+{
+  const el = document.getElementById('version');
+  if (el) el.textContent = `INKSTONE · V${VERSION}`;
+}
+
+// --------------------------------------------------------------- renderer
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdcd3be);
+scene.fog = new THREE.FogExp2(0xdcd3be, 0.018);
+
+const camera = new THREE.PerspectiveCamera(
+  TUNING.camera.fov, window.innerWidth / window.innerHeight,
+  TUNING.camera.near, TUNING.camera.far
+);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+/** Pixel ratio, after the player's resolution-scale option. */
+function applyPixelRatio() {
+  const scale = TUNING.frame.resolutionScale;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
+}
+applyPixelRatio();
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// ------------------------------------------------------------------ world
+
+World.scene = scene;
+World.renderer = renderer;
+World.camRig = new CameraRig(camera);
+
+// Bootstrap rng/fx so nothing null-derefs before the first Run installs its
+// own. Run.install() replaces both; Run.dispose() tears its own down.
+World.rng = new Rng(getSeedFromUrl());
+World.fx = new Fx(scene, World.rng);
+
+const arena = createArena(scene);
+World.splatSurfaces = arena.splatSurfaces;
+World.player = new Player(scene);
+
+// The canvas view. It outlives any single run — it renders whatever registry
+// the current run owns, and draws nothing when there is no run.
+const inkCanvas = new InkCanvas(scene);
+World.inkCanvas = inkCanvas;
+
+const hud = new Hud();
+const pauseMenu = new PauseMenu();
+
+const game = new Game({
+  scene, player: World.player, camRig: World.camRig,
+  pauseMenu, hud, version: VERSION,
+});
+pauseMenu.game = game;
+
+const debug = new Debug(scene, {
+  spawn: (n) => {
+    const run = World.run;
+    if (!run) return;
+    for (let i = 0; i < n; i++) run.spawnRing('oni', TUNING.spawn.ringRadius, TUNING.spawn.ringJitter);
+    run.kataTarget = Math.max(run.kataTarget, run.aliveCount());
+  },
+  killAll: () => { for (const e of World.enemies) if (!e.dead) e.die(); },
+  reset: () => game.restart(),
+  renderInfo: () => renderer.info.render,
+});
+
+Input.init();
+
+// Options must not import the renderer or the audio graph, so it calls back
+// through these instead. Registered before load() so restoring a saved
+// profile's choices actually reaches the things they describe.
+Hooks.onVisual = () => {
+  applyPixelRatio();
+  document.documentElement.style.setProperty('--text-scale', String(TUNING.access.textScale));
+};
+Hooks.onAudio = () => Audio.applyVolumes();
+
+migrateOnce();
+PlayerOptions.load();
+
+// --------------------------------------------------------- V0.5 Shell seam
+//
+// The modern SLU Shell boots beside the existing Game first. Game remains the
+// authority while the bridge mirrors phases and gathers production telemetry.
+// No combat, renderer or gameplay-input ownership moves in this step.
+
+const paritySnapshot = () => captureParitySnapshot({ game, World, TUNING });
+let shellBridge = null;
+
+try {
+  shellBridge = await createInkstoneShellBridge({
+    version: VERSION,
+    dev: devMode(),
+    snapshot: paritySnapshot,
+  });
+
+  // Mirror legacy state into the Shell without changing legacy behavior.
+  const legacySetState = game.setState.bind(game);
+  game.setState = (next) => {
+    const prev = game.state;
+    const result = legacySetState(next);
+    shellBridge.syncState(game.state, prev);
+    return result;
+  };
+
+  // Record run lifecycle semantically. These wrappers do not mutate run data.
+  const legacyStartRun = game.startRun.bind(game);
+  game.startRun = (mode, opts = {}) => {
+    const result = legacyStartRun(mode, opts);
+    const run = game.run;
+    shellBridge.runStarted({
+      mode: run?.mode ?? mode,
+      seed: run?.seed ?? run?.config?.seed ?? null,
+      scroll: run?.config?.scroll ?? opts.scroll ?? null,
+      difficulty: run?.config?.difficulty ?? null,
+      modifiers: run?.config?.modifiers ?? [],
+    });
+    return result;
+  };
+
+  const legacyFinishRun = game.finishRun.bind(game);
+  game.finishRun = async () => {
+    const result = await legacyFinishRun();
+    if (game.pendingSummary) shellBridge.runFinished(game.pendingSummary);
+    return result;
+  };
+} catch (error) {
+  // During the migration the old game remains a safe fallback. A Shell boot
+  // failure should be visible to developers, not prevent a combat parity test.
+  console.error('[INKSTONE V0.5] Shell shadow boot failed; legacy authority retained.', error);
+}
+
+// ------------------------------------------------------------------ audio
+
+let audioArmed = false;
+function armAudio() {
+  if (audioArmed) return;
+  audioArmed = true;
+  Audio.start();
+  const btn = document.getElementById('start-btn');
+  if (btn) btn.classList.add('hidden');
+}
+document.getElementById('start-btn').addEventListener('click', armAudio);
+window.addEventListener('pointerdown', armAudio, { once: false });
+window.addEventListener('keydown', armAudio, { once: false });
+
+// -------------------------------------------------------------- sim step
+
+const STEP = 1 / TUNING.sim.hz;
+
+function simStep(dt) {
+  Input.step(dt);
+
+  World.player.update(dt);
+  World.player.validateLock();
+
+  for (const e of World.enemies) e.update(dt, World.player.position);
+
+  // reap fully-faded corpses
+  for (let i = World.enemies.length - 1; i >= 0; i--) {
+    const e = World.enemies[i];
+    if (e.dead && e.deathTimer > TUNING.oni.deathTime + 0.2) {
+      e.dispose();
+      World.enemies.splice(i, 1);
+    }
+  }
+
+  World.fx.update(dt);
+  World.camRig.update(dt, World.player);
+
+  // stroke counter decay (the real style evaluator is V0.6)
+  if (World.combo > 0) {
+    World.comboTimer += dt;
+    if (World.comboTimer >= TUNING.combo.window) {
+      World.combo = 0;
+      World.comboTimer = 0;
+    }
+  }
+
+  // waves, record and score — everything that belongs to the run
+  game.simStep(dt);
+}
+
+// ----------------------------------------------------------------- loop
+
+let last = performance.now();
+let accumulator = 0;
+
+function frame(now) {
+  requestAnimationFrame(frame);
+
+  const frameStart = now;
+  let realDt = (now - last) / 1000;
+  last = now;
+  if (realDt > TUNING.sim.maxFrameDelta) realDt = TUNING.sim.maxFrameDelta;
+
+  if (Input.debugToggleRequested) {
+    Input.debugToggleRequested = false;
+    debug.toggle();
+  }
+
+  Input.poll();
+
+  // Game decides whether the sim advances this frame (RUN only).
+  const simRunning = game.update(realDt);
+
+  if (!simRunning) accumulator = 0;
+  else accumulator += realDt;
+
+  let steps = 0;
+  const maxSteps = TUNING.sim.maxStepsPerFrame;
+
+  while (accumulator >= STEP && steps < maxSteps) {
+    if (World.hitStop > 0) {
+      // the world is frozen: burn the step, advance nothing but the freeze
+      World.hitStop = Math.max(0, World.hitStop - STEP);
+    } else {
+      simStep(STEP);
+    }
+    accumulator -= STEP;
+    steps++;
+  }
+  if (steps >= maxSteps) accumulator = 0;    // don't spiral
+
+  const alpha = World.hitStop > 0 ? 1 : accumulator / STEP;
+
+  World.player.applyInterpolation(alpha);
+  for (const e of World.enemies) e.applyInterpolation(alpha);
+  if (World.projectiles) for (const p of World.projectiles) p.applyInterpolation(alpha);
+  World.camRig.apply(alpha, now / 1000);
+
+  // read-only view of the registry; never writes back into the sim
+  inkCanvas.update(World.strokes);
+
+  hud.update(camera, game);
+  World.debug.simStepsLastFrame = steps;
+  debug.update(STEP, realDt);
+
+  renderer.render(scene, camera);
+  World.debug.frameMs = performance.now() - frameStart;
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+window.addEventListener('beforeunload', () => {
+  if (shellBridge) void shellBridge.dispose();
+});
+
+game.boot();
+requestAnimationFrame(frame);
+
+// expose for console poking during tuning sessions and for the headless
+// harness used to produce gate evidence in REPORT.md
+const HARNESS = {
+  VERSION,
+  World, TUNING, Input, Audio, scene, camera, renderer,
+  game, pauseMenu, hud, Profile, STATE, simStep, STEP, devMode, inkCanvas,
+  shellBridge,
+  shell: shellBridge?.shell || null,
+
+  /** V0.5 migration truth: seed/run/canvas facts that must survive Shell work. */
+  paritySnapshot,
+  compareParity: compareParitySnapshots,
+  parityFingerprint: () => parityFingerprint(paritySnapshot()),
+
+  /** Dev: bounce every procedural sound to WAV via the local file sink. */
+  async exportAudio(sink) {
+    const m = await import('./exportaudio.js');
+    return m.exportAll(sink);
+  },
+
+  /** Drive the sim without the render loop. opts: {move:[x,y], press:[...]} */
+  run(steps, opts = {}) {
+    for (let i = 0; i < steps; i++) {
+      if (opts.move) { Input.move.x = opts.move[0]; Input.move.y = opts.move[1]; }
+      if (i === 0 && opts.press) for (const a of opts.press) Input.press(a);
+      if (World.hitStop > 0) World.hitStop = Math.max(0, World.hitStop - STEP);
+      else simStep(STEP);
+    }
+  },
+};
+
+window.INKSTONE = HARNESS;
+/** Kept so console snippets and the gate harness from the SUMI era still run. */
+window.SUMI = HARNESS;
