@@ -11,16 +11,19 @@ export * from "./persistence/SaveManager.js";
 export * from "./input/InputTypes.js";
 export * from "./input/InputManager.js";
 export * from "./input/PointerLook.js";
+export * from "./input/InputAssist.js";
 
 export * from "./platform/browser/BrowserStorage.js";
 export * from "./platform/browser/IndexedDBStorage.js";
 export * from "./platform/browser/BrowserInputSource.js";
 export * from "./platform/browser/BrowserPlatform.js";
+export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
 export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
 export * from "./content/VisualRegistry.js";
+export * from "./assets/AssetManifest.js";
 
 export * from "./game/Modes.js";
 export * from "./game/Objectives.js";
@@ -33,7 +36,19 @@ export * from "./game/Achievements.js";
 
 export * from "./ui/ScreenManager.js";
 export * from "./ui/FocusManager.js";
+export * from "./ui/UIStress.js";
 export * from "./debug/DebugState.js";
+export * from "./debug/DevConsole.js";
+export * from "./telemetry/Telemetry.js";
+export * from "./replay/InputReplay.js";
+export * from "./diagnostics/RuntimeDiagnostics.js";
+export * from "./localization/Localization.js";
+export * from "./validation/ContentValidator.js";
+export * from "./performance/PerformanceBudget.js";
+export * from "./sequencing/Timeline.js";
+export * from "./certification/Certification.js";
+export * from "./testing/FlowSmoke.js";
+export * from "./studio/StudioServices.js";
 
 export * from "./adapters/index.js";
 export * from "./frames/index.js";
