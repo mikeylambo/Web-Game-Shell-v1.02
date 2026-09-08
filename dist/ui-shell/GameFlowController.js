@@ -2,13 +2,16 @@ export class GameFlowController {
     shell;
     ui;
     caps;
+    options;
     selectedMode = null;
     setupQueue = [];
     setupIndex = -1;
-    constructor(shell, ui, caps) {
+    settingsBackTarget = "main-menu";
+    constructor(shell, ui, caps, options = {}) {
         this.shell = shell;
         this.ui = ui;
         this.caps = caps;
+        this.options = options;
     }
     start() {
         this.ui.show("title");
@@ -22,7 +25,7 @@ export class GameFlowController {
             if (choiceId === "play")
                 this.ui.show("mode-select");
             else if (choiceId === "settings")
-                this.showSettings();
+                this.showSettings("main-menu");
             else if (choiceId === "credits")
                 this.ui.show("credits");
             else if (choiceId === "challenges")
@@ -81,6 +84,10 @@ export class GameFlowController {
         }
     }
     onBack(screenId) {
+        if (screenId === "settings") {
+            this.ui.show(this.settingsBackTarget);
+            return;
+        }
         const map = {
             "mode-select": "main-menu",
             "difficulty-select": "mode-select",
@@ -89,7 +96,6 @@ export class GameFlowController {
             "vehicle-select": "mode-select",
             "loadout": "mode-select",
             "challenge-select": "main-menu",
-            "settings": "main-menu",
             "credits": "main-menu"
         };
         const target = map[screenId];
@@ -133,10 +139,13 @@ export class GameFlowController {
         });
     }
     showSettings(backTarget = "main-menu") {
+        this.settingsBackTarget = backTarget;
         const s = this.shell.settings.snapshot();
+        const customChoices = this.options.settingsExtension?.choices(this.shell) ?? [];
         this.ui.updateScreen("settings", {
             backTarget,
             choices: [
+                ...customChoices,
                 { id: "master-down", label: `Master Volume: ${Math.round((s.masterVolume ?? 1) * 100)}%`, description: "Select to lower by 10%" },
                 { id: "master-up", label: "Increase Master Volume", description: "+10%" },
                 { id: "reduced-motion", label: `Reduced Motion: ${s.reducedMotion ? "On" : "Off"}` },
@@ -148,29 +157,32 @@ export class GameFlowController {
         this.ui.show("settings");
     }
     async handleSetting(choiceId) {
-        const s = this.shell.settings.snapshot();
-        if (choiceId === "master-down") {
-            await this.shell.settings.patch({ masterVolume: Math.max(0, (s.masterVolume ?? 1) - 0.1) });
+        const handledByGame = await this.options.settingsExtension?.handle(choiceId, this.shell) ?? false;
+        if (!handledByGame) {
+            const s = this.shell.settings.snapshot();
+            if (choiceId === "master-down") {
+                await this.shell.settings.patch({ masterVolume: Math.max(0, (s.masterVolume ?? 1) - 0.1) });
+            }
+            else if (choiceId === "master-up") {
+                await this.shell.settings.patch({ masterVolume: Math.min(1, (s.masterVolume ?? 1) + 0.1) });
+            }
+            else if (choiceId === "reduced-motion") {
+                await this.shell.settings.patch({ reducedMotion: !s.reducedMotion });
+            }
+            else if (choiceId === "screen-shake") {
+                const current = s.screenShake ?? 1;
+                await this.shell.settings.patch({ screenShake: current <= 0 ? 1 : Math.max(0, current - 0.25) });
+            }
+            else if (choiceId === "vibration") {
+                await this.shell.settings.patch({ vibration: !s.vibration });
+            }
+            else if (choiceId === "fullscreen") {
+                if (document.fullscreenElement)
+                    await document.exitFullscreen();
+                else
+                    await document.documentElement.requestFullscreen?.();
+            }
         }
-        else if (choiceId === "master-up") {
-            await this.shell.settings.patch({ masterVolume: Math.min(1, (s.masterVolume ?? 1) + 0.1) });
-        }
-        else if (choiceId === "reduced-motion") {
-            await this.shell.settings.patch({ reducedMotion: !s.reducedMotion });
-        }
-        else if (choiceId === "screen-shake") {
-            const current = s.screenShake ?? 1;
-            await this.shell.settings.patch({ screenShake: current <= 0 ? 1 : Math.max(0, current - 0.25) });
-        }
-        else if (choiceId === "vibration") {
-            await this.shell.settings.patch({ vibration: !s.vibration });
-        }
-        else if (choiceId === "fullscreen") {
-            if (document.fullscreenElement)
-                await document.exitFullscreen();
-            else
-                await document.documentElement.requestFullscreen?.();
-        }
-        this.showSettings();
+        this.showSettings(this.settingsBackTarget);
     }
 }

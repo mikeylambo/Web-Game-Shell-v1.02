@@ -17,6 +17,7 @@ export declare class ModeManager {
     private modes;
     private activeId;
     register(modes: readonly ModeDefinition[]): void;
+    replace(modes: readonly ModeDefinition[]): void;
     activate(id: string): ModeDefinition;
     active(): ModeDefinition | null;
     list(): ModeDefinition[];

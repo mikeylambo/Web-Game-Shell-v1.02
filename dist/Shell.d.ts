@@ -12,11 +12,16 @@ import { StatsManager } from "./game/StatsManager.js";
 import { ContentRegistry } from "./content/ContentRegistry.js";
 import type { RendererAdapter } from "./adapters/RendererAdapter.js";
 import type { SettingsStore } from "./persistence/SettingsStore.js";
+import { StudioServices, type StudioServicesOptions } from "./studio/StudioServices.js";
 export interface ShellEvents {
     "game:pause": undefined;
     "game:resume": undefined;
     "game:restart": undefined;
     "game:quit": undefined;
+    "game:error": {
+        scope: string;
+        error: unknown;
+    };
     "level:load": {
         id: string;
         payload?: unknown;
@@ -32,6 +37,7 @@ export interface ShellOptions<TSettings extends object> {
     settings: SettingsStore<TSettings>;
     unlocks?: UnlockManager;
     stats?: StatsManager;
+    studio?: StudioServicesOptions;
 }
 export declare class SLUWebShell<TSettings extends object> {
     readonly options: ShellOptions<TSettings>;
@@ -46,6 +52,8 @@ export declare class SLUWebShell<TSettings extends object> {
     readonly unlocks: UnlockManager;
     readonly stats: StatsManager;
     readonly content: ContentRegistry;
+    readonly studio: StudioServices;
+    private lastLevelId;
     constructor(options: ShellOptions<TSettings>);
     get build(): BuildInfo;
     get renderer(): RendererAdapter;
@@ -56,4 +64,6 @@ export declare class SLUWebShell<TSettings extends object> {
     loadLevel(id: string, payload?: unknown): Promise<void>;
     restart(): void;
     quit(): void;
+    dispose(): Promise<void>;
+    private fail;
 }

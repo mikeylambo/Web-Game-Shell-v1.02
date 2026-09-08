@@ -4,6 +4,10 @@ export class GameSession {
     phase = "boot";
     startedAt = 0;
     endedAt = 0;
+    phasePolicy = null;
+    usePhasePolicy(policy) {
+        this.phasePolicy = policy;
+    }
     start(now = performance.now()) {
         this.startedAt = now;
         this.endedAt = 0;
@@ -12,6 +16,7 @@ export class GameSession {
     setPhase(next) {
         if (next === this.phase)
             return;
+        this.phasePolicy?.assert(this.phase, next);
         const from = this.phase;
         this.phase = next;
         this.events.emit("phase:changed", { from, to: next });
