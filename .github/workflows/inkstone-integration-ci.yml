@@ -43,6 +43,10 @@ jobs:
         working-directory: consumers/inkstone
         run: npm run test:lifecycle
 
+      - name: Prove Shell persistence contract
+        working-directory: consumers/inkstone
+        run: npm run test:persistence
+
       - name: Build Inkstone against live private Shell
         working-directory: consumers/inkstone
         run: npm run build
