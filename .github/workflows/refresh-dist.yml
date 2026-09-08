@@ -37,9 +37,9 @@ jobs:
             --outfile=packages/inkstone-shell-v1.0.2.mjs
       - name: Emit portable base64 chunks
         run: |
-          mkdir -p packages/inkstone-shell-v1.0.2.base64
+          mkdir -p packages/inkstone-shell-v1.0.2.base64-3000
           base64 -w 0 packages/inkstone-shell-v1.0.2.mjs > /tmp/inkstone-shell.b64
-          split -b 6000 -d -a 2 /tmp/inkstone-shell.b64 packages/inkstone-shell-v1.0.2.base64/part-
+          split -b 3000 -d -a 2 /tmp/inkstone-shell.b64 packages/inkstone-shell-v1.0.2.base64-3000/part-
       - name: Commit generated dist and package snapshots
         run: |
           if [ -z "$(git status --porcelain -- dist packages)" ]; then
