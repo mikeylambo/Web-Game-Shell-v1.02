@@ -113,12 +113,34 @@ export class InkstoneShellBridge {
       onEvent: (name, payload) => this.event(name, payload),
       onError: (scope, error) => this.persistenceError(scope, error),
     });
-    await this.persistence.boot();
+    const recovery = await this.persistence.boot();
+    await this.rehydratePersistenceConsumers(recovery);
 
     this.installInkstoneStudioSurface();
     this.ready = true;
     this.syncState(this.lastGameState, 'BOOT');
     return this;
+  }
+
+  async rehydratePersistenceConsumers(recovery) {
+    // Input and PlayerOptions are module singletons created before Shell boot.
+    // If persistence repaired their raw compatibility keys, reload them now so
+    // the recovered data is active in this same launch.
+    try {
+      const [{ Input }, { PlayerOptions }] = await Promise.all([
+        import('../input.js'),
+        import('../playeroptions.js'),
+      ]);
+      Input.loadBindings();
+      Input.rebuildLookup();
+      PlayerOptions.load();
+      this.event('persistence.rehydrated', {
+        source: recovery?.source || 'empty',
+        restored: recovery?.restored || [],
+      });
+    } catch (error) {
+      this.persistenceError('rehydrate', error);
+    }
   }
 
   installInkstoneStudioSurface() {
