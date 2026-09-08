@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "parity": "node tools/verify-v04-source-parity.mjs"
+    "parity": "node tools/verify-v04-source-parity.mjs",
+    "test:lifecycle": "node tools/test-shell-lifecycle.mjs"
   },
   "dependencies": {
     "@slu/web-shell": "file:../..",
