@@ -19,6 +19,11 @@ function isJsonString(raw) {
   try { JSON.parse(raw); return true; } catch { return false; }
 }
 
+function parseJson(raw, fallback = null) {
+  if (!isJsonString(raw) || raw == null) return fallback;
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
 /**
  * The Shell envelope is only healthy if the Inkstone payloads inside it are
  * healthy too. This prevents a syntactically-valid envelope from blessing a
@@ -131,6 +136,25 @@ export class InkstonePersistenceBridge {
     return restored;
   }
 
+  async mirrorLegacyOptions() {
+    const options = parseJson(this.raw(KEYS.options), null);
+    if (!options || typeof options !== 'object' || Array.isArray(options)) return false;
+
+    await this.playerSettings.patch({ ...options });
+    const corePatch = {};
+    if (Number.isFinite(options.volMaster)) corePatch.masterVolume = options.volMaster;
+    if (Number.isFinite(options.volMusic)) corePatch.musicVolume = options.volMusic;
+    if (Number.isFinite(options.volSfx)) corePatch.sfxVolume = options.volSfx;
+    if (Number.isFinite(options.shake)) corePatch.screenShake = options.shake;
+    if (this.coreSettings && Object.keys(corePatch).length) await this.coreSettings.patch(corePatch);
+
+    this.onEvent('settings.sync', {
+      inkstoneKeys: Object.keys(options).length,
+      coreKeys: Object.keys(corePatch),
+    });
+    return true;
+  }
+
   async boot() {
     await this.playerSettings.load();
     const recovery = await this.loadValidatedRecovery();
@@ -146,11 +170,12 @@ export class InkstonePersistenceBridge {
     };
 
     this.onEvent('persistence.recovery', this.lastRecovery);
-    await this.saveNow('boot');
+    await this.mirrorLegacyOptions();
+    await this.saveNow('boot', { mirrorOptions: false });
     return this.lastRecovery;
   }
 
-  async saveNow(reason = 'unspecified') {
+  async saveNow(reason = 'unspecified', { mirrorOptions = true } = {}) {
     const snapshot = this.capture();
     const health = validateCompatibilitySnapshot(snapshot);
     if (!health.ok) {
@@ -159,6 +184,7 @@ export class InkstonePersistenceBridge {
       this.onEvent('persistence.snapshot-refused', { reason, invalid: health.invalid });
       return false;
     }
+    if (mirrorOptions) await this.mirrorLegacyOptions();
     await this.saveManager.save(snapshot);
     this.onEvent('persistence.snapshot', { reason, keys: COMPAT_KEYS.length });
     return true;
@@ -200,6 +226,7 @@ export class InkstonePersistenceBridge {
     if (!validateCompatibilitySnapshot(backup.data).ok) return false;
     await this.saveManager.restoreBackup();
     const restored = this.applyRecovery(backup.data, { all: true });
+    await this.mirrorLegacyOptions();
     this.lastRecovery = { source: 'backup', restored, invalidLegacy: [], healthyAfter: true };
     this.onEvent('persistence.manual-restore', { restored });
     return true;
