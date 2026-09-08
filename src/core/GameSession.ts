@@ -1,5 +1,6 @@
 import { EventBus } from "./EventBus.js";
 import type { GamePhase } from "./types.js";
+import type { PhasePolicy } from "./PhasePolicy.js";
 
 export interface SessionEvents {
   "phase:changed": { from: GamePhase; to: GamePhase };
@@ -13,6 +14,11 @@ export class GameSession {
   phase: GamePhase = "boot";
   startedAt = 0;
   endedAt = 0;
+  private phasePolicy: PhasePolicy | null = null;
+
+  usePhasePolicy(policy: PhasePolicy | null): void {
+    this.phasePolicy = policy;
+  }
 
   start(now = performance.now()): void {
     this.startedAt = now;
@@ -22,6 +28,7 @@ export class GameSession {
 
   setPhase(next: GamePhase): void {
     if (next === this.phase) return;
+    this.phasePolicy?.assert(this.phase, next);
     const from = this.phase;
     this.phase = next;
     this.events.emit("phase:changed", { from, to: next });
