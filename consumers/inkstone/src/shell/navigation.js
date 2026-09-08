@@ -55,6 +55,7 @@ export const NAV_GRAPH = Object.freeze({
   PILGRIMAGE: ['PLAY_SELECT'],
 });
 
+/** Semantic routes that must remain traversable without mouse-only escape hatches. */
 export const PAD_SMOKE_FLOWS = Object.freeze([
   ['TITLE', 'PLAY_SELECT', 'SCROLL_SELECT', 'PLAY_SELECT', 'TITLE'],
   ['TITLE', 'INKSTONE', 'TITLE'],
@@ -122,11 +123,20 @@ export class InkstoneNavigationCoordinator {
     this.onEvent = typeof onEvent === 'function' ? onEvent : () => {};
     this.onRejected = typeof onRejected === 'function' ? onRejected : () => {};
 
-    // Shell ScreenManager owns the semantic screen registry/history mirror.
-    // Inkstone's existing screen objects remain the visual adapters during V0.5.
+    // ScreenManager mirrors the semantic screen registry/history. Its async API
+    // is serialized so rapid synchronous Game transitions cannot reorder it.
     this.screenManager = new ScreenManager();
     this.screenManager.register(NAV_STATES.map((id) => ({ id })));
-    void this.screenManager.show(state, undefined, false);
+    this.screenQueue = this.screenManager.show(state, undefined, false);
+  }
+
+  queueScreen(state, params, remember) {
+    this.screenQueue = this.screenQueue
+      .then(() => this.screenManager.show(state, params, remember))
+      .catch((error) => {
+        this.onRejected({ from: this.current, to: state, reason: 'screen-manager', error });
+      });
+    return this.screenQueue;
   }
 
   request(next, { reason = 'legacy-setState', remember = true } = {}) {
@@ -147,9 +157,7 @@ export class InkstoneNavigationCoordinator {
     if (this.history.length > 64) this.history.shift();
     this.current = target;
     this.transitions++;
-    void this.screenManager.show(target, { from, reason }, remember).catch((error) => {
-      this.onRejected({ from, to: target, reason: 'screen-manager', error });
-    });
+    this.queueScreen(target, { from, reason }, remember);
     this.onEvent('navigation.transition', { from, to: target, reason, transitions: this.transitions });
     return { ok: true, changed: true, from, to: target };
   }
@@ -158,8 +166,13 @@ export class InkstoneNavigationCoordinator {
     const state = cleanState(actual);
     if (!NAV_STATES.includes(state)) return false;
     this.current = state;
-    void this.screenManager.show(state, { reason }, false).catch(() => {});
+    this.queueScreen(state, { reason }, false);
     return true;
+  }
+
+  async flush() {
+    await this.screenQueue;
+    return this.status();
   }
 
   status() {
