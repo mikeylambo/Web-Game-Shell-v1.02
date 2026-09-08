@@ -7,15 +7,16 @@ import {
   createArcadeAssembly,
   mountBrowserDevConsole,
 } from '@slu/web-shell';
+import { InkstonePersistenceBridge } from './persistence.js';
 
 /**
  * V0.5 migration rule: move ownership across the seam only after parity.
  *
  * Inkstone's existing Game remains authoritative for player-facing app state,
  * semantic gameplay input, fixed-step simulation, rendering and combat. The
- * Shell now owns production services plus browser/presentation lifecycle:
- * losing focus can request the existing pause path, and actual PAUSE state
- * suspends presentation audio without changing simulation or combat timing.
+ * Shell owns production services, browser/presentation lifecycle, save safety
+ * and the authoritative mirrored settings stores around Inkstone's compatible
+ * legacy localStorage surface.
  */
 
 const SHELL_NAMESPACE = 'inkstone-v05';
@@ -64,6 +65,7 @@ export class InkstoneShellBridge {
     this.composer = null;
     this.storage = null;
     this.settings = null;
+    this.persistence = null;
     this.devConsole = null;
     this.ready = false;
     this.lastGameState = 'BOOT';
@@ -93,7 +95,7 @@ export class InkstoneShellBridge {
         gameId: 'inkstone',
         gameName: 'INKSTONE',
         version: this.version,
-        build: 'v0.5-lifecycle',
+        build: 'v0.5-persistence',
       },
       renderer: rendererAdapter,
       settings: this.settings,
@@ -104,6 +106,14 @@ export class InkstoneShellBridge {
     await this.composer.add(createCharacterActionAssembly(context));
     await this.composer.add(createArcadeAssembly(context));
     await this.shell.boot();
+
+    this.persistence = new InkstonePersistenceBridge({
+      storage: this.storage,
+      coreSettings: this.settings,
+      onEvent: (name, payload) => this.event(name, payload),
+      onError: (scope, error) => this.persistenceError(scope, error),
+    });
+    await this.persistence.boot();
 
     this.installInkstoneStudioSurface();
     this.ready = true;
@@ -118,11 +128,12 @@ export class InkstoneShellBridge {
     studio.dev.registerPanel('Inkstone', {
       description: 'Parity and ownership view during the V0.5 Shell migration',
       read: () => ({
-        migrationMode: 'parity-first-lifecycle',
+        migrationMode: 'parity-first-persistence',
         gameState: this.lastGameState,
         shellPhase: this.shell.session.phase,
         presentationSuspended: this.presentationSuspended,
         browserLifecycleAttached: this.browserLifecycleAttached,
+        persistence: this.persistence?.status() || null,
         assemblies: this.composer.listAssemblies(),
         modules: this.composer.modules.list(),
         modes: this.shell.modes.list(),
@@ -138,15 +149,27 @@ export class InkstoneShellBridge {
     studio.dev.register('inkstone.migration', {
       description: 'Show V0.5 Shell migration ownership status',
       run: () => JSON.stringify({
-        mode: 'parity-first-lifecycle',
+        mode: 'parity-first-persistence',
         legacyOwns: ['app-flow', 'gameplay-input', 'fixed-step-sim', 'renderer', 'combat'],
         shellOwns: [
           'assemblies', 'studio-services', 'telemetry', 'diagnostics',
           'browser-focus-lifecycle', 'presentation-suspend',
+          'save-backup-recovery', 'settings-mirroring',
         ],
-        mirrored: ['game-phase', 'run-lifecycle'],
+        mirrored: ['game-phase', 'run-lifecycle', 'legacy-save-keys'],
         presentationSuspended: this.presentationSuspended,
+        persistence: this.persistence?.status() || null,
       }, null, 2),
+    });
+
+    studio.dev.register('inkstone.save.status', {
+      description: 'Show Shell-backed save recovery and settings status',
+      run: () => JSON.stringify(this.persistence?.status() || null, null, 2),
+    });
+
+    studio.dev.register('inkstone.save.restore', {
+      description: 'Restore the last validated backup into Inkstone compatibility keys',
+      run: async () => JSON.stringify({ restored: await this.persistence?.restoreBackup() }, null, 2),
     });
 
     if (this.dev) {
@@ -164,6 +187,7 @@ export class InkstoneShellBridge {
       gameState: this.lastGameState,
       shellPhase: this.shell?.session?.phase || 'unavailable',
       presentationSuspended: this.presentationSuspended,
+      persistenceRecovery: this.persistence?.lastRecovery || null,
       ...snap,
     };
   }
@@ -190,6 +214,7 @@ export class InkstoneShellBridge {
       phase,
       presentationSuspended: this.presentationSuspended,
     });
+    void this.persistence?.queueSnapshot(`state:${this.lastGameState}`);
   }
 
   suspendPresentation(reason = 'unspecified') {
@@ -215,6 +240,14 @@ export class InkstoneShellBridge {
   lifecycleError(scope, error) {
     this.shell?.studio?.diagnostics?.capture?.(error, { scope: `inkstone.lifecycle.${scope}` });
     this.event('lifecycle.error', {
+      scope,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  persistenceError(scope, error) {
+    this.shell?.studio?.diagnostics?.capture?.(error, { scope: `inkstone.persistence.${scope}` });
+    this.event('persistence.error', {
       scope,
       message: error instanceof Error ? error.message : String(error),
     });
@@ -246,15 +279,18 @@ export class InkstoneShellBridge {
     };
     const onBlur = () => this.requestPauseForBrowser('window-blur');
     const onFocus = () => this.event('lifecycle.focus');
+    const onPageHide = () => { void this.persistence?.queueSnapshot('pagehide'); };
 
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('blur', onBlur);
     window.addEventListener('focus', onFocus);
+    window.addEventListener('pagehide', onPageHide);
 
     this.lifecycleDisposers.push(
       () => document.removeEventListener('visibilitychange', onVisibility),
       () => window.removeEventListener('blur', onBlur),
       () => window.removeEventListener('focus', onFocus),
+      () => window.removeEventListener('pagehide', onPageHide),
     );
     this.browserLifecycleAttached = true;
     this.event('lifecycle.attached');
@@ -268,6 +304,7 @@ export class InkstoneShellBridge {
   runStarted(config = {}) {
     if (!this.shell) return;
     this.shell.studio?.telemetry?.record('inkstone.run.start', safeJson(config) || {});
+    void this.persistence?.queueSnapshot('run-start');
   }
 
   runFinished(summary = {}) {
@@ -281,6 +318,7 @@ export class InkstoneShellBridge {
       rank: summary.rank?.grade ?? null,
       runHash: summary.runHash ?? null,
     });
+    void this.persistence?.queueSnapshot('run-finish');
   }
 
   event(name, payload = {}) {
@@ -289,6 +327,7 @@ export class InkstoneShellBridge {
 
   async dispose() {
     this.detachBrowserLifecycle();
+    try { await this.persistence?.queueSnapshot('dispose'); } catch { /* diagnostics already record failures */ }
     this.devConsole?.dispose();
     this.devConsole = null;
     if (this.shell?.dispose) await this.shell.dispose();
