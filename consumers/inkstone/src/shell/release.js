@@ -50,6 +50,33 @@ export async function createInkstoneReleaseRuntime({
     platform.reportError('options-release-hook', error);
   }
 
+  // Measure presentation cadence independently of the deterministic simulation.
+  // FrameTimeSampler keeps the latest 240 samples, so Studio certification sees
+  // what the browser actually presented rather than a synthetic sim benchmark.
+  let stopFrameSampling = null;
+  const frameTimes = bridge.shell?.studio?.frameTimes;
+  if (frameTimes && typeof requestAnimationFrame === 'function') {
+    let active = true;
+    let last = null;
+    let handle = 0;
+    const sample = (now) => {
+      if (!active) return;
+      if (last !== null) {
+        const frameMs = now - last;
+        // Ignore tab-suspension gaps; lifecycle separately certifies background
+        // behavior and these are not representative rendered frames.
+        if (Number.isFinite(frameMs) && frameMs >= 0 && frameMs < 250) frameTimes.push(frameMs);
+      }
+      last = now;
+      handle = requestAnimationFrame(sample);
+    };
+    handle = requestAnimationFrame(sample);
+    stopFrameSampling = () => {
+      active = false;
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(handle);
+    };
+  }
+
   const certificationArgs = () => ({ bridge, platform, optionDefs, auditOptions });
   let lastCertification = null;
   const runCertification = async () => {
@@ -171,6 +198,8 @@ export async function createInkstoneReleaseRuntime({
 
   const legacyDispose = bridge.dispose.bind(bridge);
   bridge.dispose = async () => {
+    stopFrameSampling?.();
+    stopFrameSampling = null;
     platform.dispose();
     await legacyDispose();
   };
