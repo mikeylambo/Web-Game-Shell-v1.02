@@ -97,7 +97,13 @@ export class InkstonePersistenceBridge {
       result = { data: null, source: 'empty', error };
     }
 
-    if (result.data && validateCompatibilitySnapshot(result.data).ok) return result;
+    if (result.data && validateCompatibilitySnapshot(result.data).ok) {
+      // SaveManager.loadWithRecovery returns backup data when primary migration
+      // fails, but does not promote it. Promote first so the next save cannot
+      // rotate the corrupt primary over the last known-good backup.
+      if (result.source === 'backup') await this.saveManager.restoreBackup();
+      return result;
+    }
 
     // BrowserStorage deliberately returns null for malformed JSON, so the
     // SaveManager cannot distinguish an absent primary from an unreadable one.
