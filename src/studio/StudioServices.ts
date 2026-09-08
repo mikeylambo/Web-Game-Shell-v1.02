@@ -52,6 +52,12 @@ export class StudioServices{
     this.dev.register("copy.audit",{description:"Audit registered player-facing copy",run:()=>JSON.stringify(this.copy.audit(),null,2)});
     this.dev.register("config.json",{description:"Show active runtime config",run:()=>JSON.stringify(this.config.snapshot(),null,2)});
     this.dev.register("perf.summary",{description:"Show sampled frame-time summary",run:()=>JSON.stringify(this.frameTimes.summary(),null,2)});
+    this.dev.registerPanel("Performance",{description:"Frame timing summary",read:()=>this.frameTimes.summary()});
+    this.dev.registerPanel("Telemetry",{description:"Playtest analytics",read:()=>buildPlaytestReport(this.telemetry.snapshot())});
+    this.dev.registerPanel("Diagnostics",{description:"Runtime errors and warnings",read:()=>this.diagnostics.report()});
+    this.dev.registerPanel("Assets",{description:"Semantic asset manifest",read:()=>({issues:this.assets.validate(),assets:this.assets.list()})});
+    this.dev.registerPanel("Copy",{description:"Player-facing copy audit",read:()=>this.copy.audit()});
+    this.dev.registerPanel("Config",{description:"Runtime config and feature flags",read:()=>this.config.snapshot()});
   }
   start():void{
     if(typeof location!=="undefined")this.config.applyQuery(location.search);
