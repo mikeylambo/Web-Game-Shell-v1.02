@@ -26,6 +26,7 @@ export * from "./accessibility/Accessibility.js";
 export * from "./content/ContentRegistry.js";
 export * from "./content/VisualRegistry.js";
 export * from "./content/DataContent.js";
+export * from "./content/EventFlags.js";
 export * from "./assets/AssetManifest.js";
 
 export * from "./game/Modes.js";
