@@ -16,6 +16,7 @@ import { StudioServices, type StudioServicesOptions } from "./studio/StudioServi
 
 export interface ShellEvents {
   "game:pause":undefined;"game:resume":undefined;"game:restart":undefined;"game:quit":undefined;
+  "game:error":{scope:string;error:unknown};
   "level:load":{id:string;payload?:unknown};"level:loaded":{id:string};[key:string]:unknown;
 }
 export interface ShellOptions<TSettings extends object>{
@@ -26,13 +27,41 @@ export class SLUWebShell<TSettings extends object>{
   readonly modes=new ModeManager();readonly objectives=new ObjectiveManager();readonly challenges=new ChallengeManager();
   readonly difficulty=new DifficultyManager();readonly rewards=new RewardManager();readonly unlocks:UnlockManager;
   readonly stats:StatsManager;readonly content=new ContentRegistry();readonly studio:StudioServices;
-  constructor(readonly options:ShellOptions<TSettings>){this.unlocks=options.unlocks??new UnlockManager();this.stats=options.stats??new StatsManager();this.studio=new StudioServices(options.build,options.studio);}
+  private lastLevelId:string|null=null;
+  constructor(readonly options:ShellOptions<TSettings>){
+    this.unlocks=options.unlocks??new UnlockManager();this.stats=options.stats??new StatsManager();this.studio=new StudioServices(options.build,options.studio);
+    this.session.events.on("phase:changed",({from,to})=>this.studio.telemetry.record("session.phase",{from,to}));
+    this.session.events.on("session:ended",({durationMs})=>this.studio.telemetry.record("session.end",{durationMs}));
+    this.studio.dev.register("state.phase",{description:"Show active game phase",run:()=>this.session.phase});
+    this.studio.dev.register("state.build",{description:"Show build metadata",run:()=>JSON.stringify(this.build,null,2)});
+    this.studio.dev.register("state.level",{description:"Show last loaded level id",run:()=>this.lastLevelId??"none"});
+    this.studio.dev.register("state.settings",{description:"Show active settings snapshot",run:()=>JSON.stringify(this.settings.snapshot(),null,2)});
+  }
   get build():BuildInfo{return this.options.build;} get renderer():RendererAdapter{return this.options.renderer;}
   get settings():SettingsStore<TSettings>{return this.options.settings;}
-  async boot():Promise<void>{this.session.start();this.session.setPhase("title");this.studio.start();await this.renderer.start?.();}
-  pause():void{this.session.pause();this.renderer.suspend?.();this.studio.telemetry.record("game.pause");this.events.emit("game:pause",undefined);}
-  resume():void{this.session.resume();this.renderer.resume?.();this.studio.telemetry.record("game.resume");this.events.emit("game:resume",undefined);}
-  async loadLevel(id:string,payload?:unknown):Promise<void>{this.session.setPhase("loading");this.studio.telemetry.record("level.load",{levelId:id});this.events.emit("level:load",{id,payload});await this.renderer.loadLevel?.(id,payload);this.session.setPhase("playing");this.studio.telemetry.record("level.loaded",{levelId:id});this.events.emit("level:loaded",{id});}
-  restart():void{this.studio.telemetry.record("game.restart");this.events.emit("game:restart",undefined);}
-  quit():void{this.studio.telemetry.record("game.quit");this.events.emit("game:quit",undefined);this.session.setPhase("menu");}
+  async boot():Promise<void>{
+    this.session.start();this.studio.start();
+    try{this.session.setPhase("title");await this.renderer.start?.();}
+    catch(error){this.fail("boot",error);throw error;}
+  }
+  pause():void{const before=this.session.phase;this.session.pause();if(this.session.phase===before)return;this.renderer.suspend?.();this.studio.telemetry.record("game.pause");this.events.emit("game:pause",undefined);}
+  resume():void{const before=this.session.phase;this.session.resume();if(this.session.phase===before)return;this.renderer.resume?.();this.studio.telemetry.record("game.resume");this.events.emit("game:resume",undefined);}
+  async loadLevel(id:string,payload?:unknown):Promise<void>{
+    this.lastLevelId=id;this.session.setPhase("loading");this.studio.telemetry.record("level.load",{levelId:id});this.events.emit("level:load",{id,payload});
+    try{await this.renderer.loadLevel?.(id,payload);this.session.setPhase("playing");this.studio.telemetry.record("level.loaded",{levelId:id});this.events.emit("level:loaded",{id});}
+    catch(error){this.fail("level.load",error,{levelId:id});throw error;}
+  }
+  restart():void{this.studio.telemetry.record("game.restart",this.lastLevelId?{levelId:this.lastLevelId}:{});this.events.emit("game:restart",undefined);}
+  quit():void{
+    this.studio.telemetry.record("game.quit",this.lastLevelId?{levelId:this.lastLevelId}:{});this.events.emit("game:quit",undefined);this.session.setPhase("menu");
+    try{const pending=this.renderer.unloadLevel?.();if(pending instanceof Promise)void pending.catch(error=>this.fail("level.unload",error));}catch(error){this.fail("level.unload",error);}
+    this.lastLevelId=null;
+  }
+  async dispose():Promise<void>{this.session.end();this.studio.stop();await this.renderer.dispose?.();}
+  private fail(scope:string,error:unknown,context:Record<string,string|number|boolean>={}):void{
+    this.studio.diagnostics.capture(error,{scope,...context});
+    this.studio.telemetry.record("runtime.error",{scope,message:error instanceof Error?error.message:String(error),...context});
+    try{this.session.setPhase("error");}catch{ /* preserve the original failure */ }
+    this.events.emit("game:error",{scope,error});
+  }
 }
