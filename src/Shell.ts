@@ -36,6 +36,13 @@ export class SLUWebShell<TSettings extends object>{
     this.studio.dev.register("state.build",{description:"Show build metadata",run:()=>JSON.stringify(this.build,null,2)});
     this.studio.dev.register("state.level",{description:"Show last loaded level id",run:()=>this.lastLevelId??"none"});
     this.studio.dev.register("state.settings",{description:"Show active settings snapshot",run:()=>JSON.stringify(this.settings.snapshot(),null,2)});
+    this.studio.dev.register("game.pause",{description:"Pause active gameplay",run:()=>this.pause()});
+    this.studio.dev.register("game.resume",{description:"Resume paused gameplay",run:()=>this.resume()});
+    this.studio.dev.register("game.restart",{description:"Emit the game restart request",run:()=>this.restart()});
+    this.studio.dev.register("game.quit",{description:"Return the shell to menu state",run:()=>this.quit()});
+    this.studio.dev.register("level.load",{description:"Load a level by id",run:async({args})=>{const id=args[0];if(!id)throw new Error("Usage: level.load <id>");await this.loadLevel(id);return `loaded ${id}`;}});
+    this.studio.dev.registerPanel("State",{description:"Shell, build, settings and level state",read:()=>({phase:this.session.phase,levelId:this.lastLevelId,build:this.build,settings:this.settings.snapshot()})});
+    this.studio.dev.registerPanel("Input",{description:"Semantic input actions",read:()=>Object.fromEntries(this.input.actions().map(action=>[action,this.input.get(action)]))});
   }
   get build():BuildInfo{return this.options.build;} get renderer():RendererAdapter{return this.options.renderer;}
   get settings():SettingsStore<TSettings>{return this.options.settings;}
