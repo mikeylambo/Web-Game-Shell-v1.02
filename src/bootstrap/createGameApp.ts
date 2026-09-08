@@ -7,7 +7,7 @@ import { SLUWebShell } from "../Shell.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
-import { GameFlowController } from "../ui-shell/GameFlowController.js";
+import { GameFlowController, type GameFlowOptions } from "../ui-shell/GameFlowController.js";
 import { capabilitiesForFrames } from "../assemblies/capabilities.js";
 import type { FrameAssembly } from "../assemblies/types.js";
 
@@ -18,6 +18,7 @@ export interface CreateGameAppOptions {
   renderer: RendererAdapter;
   root: HTMLElement;
   assemblies: Array<(shell: SLUWebShell<any>) => FrameAssembly>;
+  flow?: GameFlowOptions;
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
@@ -60,7 +61,7 @@ export async function createGameApp(options: CreateGameAppOptions) {
     onBack: (screen) => flow.onBack(screen)
   });
   ui.register(screenModels);
-  flow = new GameFlowController(shell, ui, caps);
+  flow = new GameFlowController(shell, ui, caps, options.flow);
 
   const bindings = [
     { action: "ui_up", keyboard: ["ArrowUp", "KeyW"], gamepadButtons: [12] },
