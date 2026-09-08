@@ -27,6 +27,10 @@ import { PlayerOptions, Hooks } from './playeroptions.js';
 import { migrateOnce } from './storage.js';
 import { createInkstoneShellBridge } from './shell/bridge.js';
 import {
+  suspendPresentationAudio,
+  resumePresentationAudio,
+} from './shell/audio-lifecycle.js';
+import {
   captureParitySnapshot,
   compareParitySnapshots,
   parityFingerprint,
@@ -122,9 +126,9 @@ PlayerOptions.load();
 
 // --------------------------------------------------------- V0.5 Shell seam
 //
-// The modern SLU Shell boots beside the existing Game first. Game remains the
-// authority while the bridge mirrors phases and gathers production telemetry.
-// No combat, renderer or gameplay-input ownership moves in this step.
+// The modern SLU Shell boots beside the existing Game. Game remains the
+// authority for app state and simulation; the bridge owns production services
+// and browser/presentation lifecycle without entering combat code.
 
 const paritySnapshot = () => captureParitySnapshot({ game, World, TUNING });
 let shellBridge = null;
@@ -134,6 +138,16 @@ try {
     version: VERSION,
     dev: devMode(),
     snapshot: paritySnapshot,
+    lifecycle: {
+      // Browser blur/hidden uses the exact same pause path as a player pressing
+      // pause, preserving PauseMenu input clearing and Game state semantics.
+      requestPause: () => {
+        if (game.state === STATE.RUN) game.togglePause();
+      },
+      // Presentation-only: no mixer values, cues or simulation state change.
+      suspendAudio: () => suspendPresentationAudio(),
+      resumeAudio: () => resumePresentationAudio(),
+    },
   });
 
   // Mirror legacy state into the Shell without changing legacy behavior.
@@ -166,10 +180,14 @@ try {
     if (game.pendingSummary) shellBridge.runFinished(game.pendingSummary);
     return result;
   };
+
+  // Install focus/visibility listeners only after the state wrapper exists, so
+  // every browser-triggered pause is mirrored and presentation-suspended.
+  shellBridge.attachBrowserLifecycle();
 } catch (error) {
   // During the migration the old game remains a safe fallback. A Shell boot
   // failure should be visible to developers, not prevent a combat parity test.
-  console.error('[INKSTONE V0.5] Shell shadow boot failed; legacy authority retained.', error);
+  console.error('[INKSTONE V0.5] Shell lifecycle boot failed; legacy authority retained.', error);
 }
 
 // ------------------------------------------------------------------ audio
@@ -178,7 +196,16 @@ let audioArmed = false;
 function armAudio() {
   if (audioArmed) return;
   audioArmed = true;
-  Audio.start();
+  void Audio.start().then(() => {
+    // If the browser lost focus while Tone was still starting, honor the Shell
+    // lifecycle state once the context becomes available.
+    if (shellBridge?.presentationSuspended) return suspendPresentationAudio();
+    return undefined;
+  }).catch((error) => {
+    shellBridge?.event('audio.start-error', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
   const btn = document.getElementById('start-btn');
   if (btn) btn.classList.add('hidden');
 }
