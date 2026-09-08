@@ -39,6 +39,10 @@ jobs:
         working-directory: consumers/inkstone
         run: npm run parity
 
+      - name: Prove Shell lifecycle contract
+        working-directory: consumers/inkstone
+        run: npm run test:lifecycle
+
       - name: Build Inkstone against live private Shell
         working-directory: consumers/inkstone
         run: npm run build
