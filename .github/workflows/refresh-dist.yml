@@ -37,12 +37,12 @@ jobs:
             --outfile=packages/inkstone-shell-v1.0.2.mjs
       - name: Commit generated dist and package snapshots
         run: |
-          if git diff --quiet -- dist packages; then
+          if [ -z "$(git status --porcelain -- dist packages)" ]; then
             echo "dist and package snapshots already current"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist packages
+          git add -f dist packages
           git commit -m "build: refresh generated dist package"
           git push origin HEAD:build/refresh-dist-v1.0.2
