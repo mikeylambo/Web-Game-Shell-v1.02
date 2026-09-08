@@ -47,6 +47,10 @@ jobs:
         working-directory: consumers/inkstone
         run: npm run test:persistence
 
+      - name: Prove Shell navigation contract
+        working-directory: consumers/inkstone
+        run: npm run test:navigation
+
       - name: Build Inkstone against live private Shell
         working-directory: consumers/inkstone
         run: npm run build
