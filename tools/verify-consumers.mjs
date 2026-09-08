@@ -18,6 +18,15 @@ function run(command, args, options = {}) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
+function linkOrCopy(source, target) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  try {
+    fs.symlinkSync(source, target, process.platform === "win32" ? "junction" : "dir");
+  } catch {
+    fs.cpSync(source, target, { recursive: true });
+  }
+}
+
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "slu-consumer-check-"));
 
 try {
@@ -41,13 +50,19 @@ try {
     try {
       fs.symlinkSync(distPackage, linkTarget, process.platform === "win32" ? "junction" : "dir");
     } catch {
-      // Fallback for environments where symlink creation is restricted.
       fs.cpSync(distPackage, linkTarget, {
         recursive: true,
         filter: (src) =>
           !src.includes(`${path.sep}node_modules${path.sep}`) &&
           !src.includes(`${path.sep}.git${path.sep}`)
       });
+    }
+
+    // The generated Three.js target has renderer-specific imports. Link the shell's
+    // verification-only dev dependencies so this remains a no-network consumer test.
+    if (renderer === "three") {
+      linkOrCopy(path.join(root, "node_modules", "three"), path.join(nodeModules, "three"));
+      linkOrCopy(path.join(root, "node_modules", "@types", "three"), path.join(nodeModules, "@types", "three"));
     }
 
     // Use the shell repository's compiler so consumer verification adds no new install step.
