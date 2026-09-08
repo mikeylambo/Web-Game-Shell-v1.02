@@ -25,10 +25,20 @@ jobs:
           rm -rf packages
           mkdir -p packages
           npm pack --pack-destination packages
-      - name: Commit generated dist and package snapshot
+      - name: Bundle minimal Inkstone browser surface
+        run: |
+          npx --yes esbuild@0.25.9 tools/inkstone-shell-entry.ts \
+            --bundle \
+            --format=esm \
+            --platform=browser \
+            --target=es2022 \
+            --minify \
+            --legal-comments=none \
+            --outfile=packages/inkstone-shell-v1.0.2.mjs
+      - name: Commit generated dist and package snapshots
         run: |
           if git diff --quiet -- dist packages; then
-            echo "dist and package snapshot already current"
+            echo "dist and package snapshots already current"
             exit 0
           fi
           git config user.name "github-actions[bot]"
