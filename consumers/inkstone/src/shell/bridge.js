@@ -9,15 +9,13 @@ import {
 } from '@slu/web-shell';
 
 /**
- * V0.5 migration rule: the modern Shell observes first, owns later.
+ * V0.5 migration rule: move ownership across the seam only after parity.
  *
- * Inkstone's existing Game remains the authority for player-facing state while
- * we prove parity. This bridge mirrors that state into the Shell, installs the
- * Character Action + Arcade production services, and exposes Studio telemetry
- * and diagnostics without touching combat timing or semantic gameplay input.
- *
- * Once a responsibility has a parity test, ownership can move across this seam
- * one subsystem at a time instead of rewriting the game around the Shell.
+ * Inkstone's existing Game remains authoritative for player-facing app state,
+ * semantic gameplay input, fixed-step simulation, rendering and combat. The
+ * Shell now owns production services plus browser/presentation lifecycle:
+ * losing focus can request the existing pause path, and actual PAUSE state
+ * suspends presentation audio without changing simulation or combat timing.
  */
 
 const SHELL_NAMESPACE = 'inkstone-v05';
@@ -47,11 +45,21 @@ function safeJson(value) {
   catch { return null; }
 }
 
+function settle(task, onError) {
+  try {
+    const result = task?.();
+    if (result instanceof Promise) result.catch(onError);
+  } catch (error) {
+    onError(error);
+  }
+}
+
 export class InkstoneShellBridge {
-  constructor({ version, dev = false, snapshot = null } = {}) {
+  constructor({ version, dev = false, snapshot = null, lifecycle = null } = {}) {
     this.version = version || 'dev';
     this.dev = !!dev;
     this.snapshot = typeof snapshot === 'function' ? snapshot : () => ({});
+    this.lifecycle = lifecycle || {};
     this.shell = null;
     this.composer = null;
     this.storage = null;
@@ -59,6 +67,9 @@ export class InkstoneShellBridge {
     this.devConsole = null;
     this.ready = false;
     this.lastGameState = 'BOOT';
+    this.presentationSuspended = false;
+    this.browserLifecycleAttached = false;
+    this.lifecycleDisposers = [];
   }
 
   async boot() {
@@ -66,10 +77,10 @@ export class InkstoneShellBridge {
     this.settings = SettingsStore.core(this.storage, 'settings');
     await this.settings.load();
 
-    // Renderer ownership deliberately stays in src/main.js during parity.
-    // These hooks are intentionally inert until the lifecycle migration phase.
+    // Three.js scene/render-loop ownership deliberately stays in src/main.js.
+    // Browser/presentation lifecycle is handled by this integration bridge.
     const rendererAdapter = {
-      id: 'inkstone-three-shadow',
+      id: 'inkstone-three-parity',
       start() {},
       suspend() {},
       resume() {},
@@ -82,7 +93,7 @@ export class InkstoneShellBridge {
         gameId: 'inkstone',
         gameName: 'INKSTONE',
         version: this.version,
-        build: 'v0.5-shadow',
+        build: 'v0.5-lifecycle',
       },
       renderer: rendererAdapter,
       settings: this.settings,
@@ -105,11 +116,13 @@ export class InkstoneShellBridge {
     if (!studio) return;
 
     studio.dev.registerPanel('Inkstone', {
-      description: 'Legacy-authority parity view during the V0.5 Shell migration',
+      description: 'Parity and ownership view during the V0.5 Shell migration',
       read: () => ({
-        migrationMode: 'shadow-authority',
+        migrationMode: 'parity-first-lifecycle',
         gameState: this.lastGameState,
         shellPhase: this.shell.session.phase,
+        presentationSuspended: this.presentationSuspended,
+        browserLifecycleAttached: this.browserLifecycleAttached,
         assemblies: this.composer.listAssemblies(),
         modules: this.composer.modules.list(),
         modes: this.shell.modes.list(),
@@ -125,10 +138,14 @@ export class InkstoneShellBridge {
     studio.dev.register('inkstone.migration', {
       description: 'Show V0.5 Shell migration ownership status',
       run: () => JSON.stringify({
-        mode: 'shadow-authority',
+        mode: 'parity-first-lifecycle',
         legacyOwns: ['app-flow', 'gameplay-input', 'fixed-step-sim', 'renderer', 'combat'],
-        shellOwns: ['assemblies', 'studio-services', 'telemetry', 'diagnostics'],
+        shellOwns: [
+          'assemblies', 'studio-services', 'telemetry', 'diagnostics',
+          'browser-focus-lifecycle', 'presentation-suspend',
+        ],
         mirrored: ['game-phase', 'run-lifecycle'],
+        presentationSuspended: this.presentationSuspended,
       }, null, 2),
     });
 
@@ -146,6 +163,7 @@ export class InkstoneShellBridge {
     return {
       gameState: this.lastGameState,
       shellPhase: this.shell?.session?.phase || 'unavailable',
+      presentationSuspended: this.presentationSuspended,
       ...snap,
     };
   }
@@ -154,13 +172,97 @@ export class InkstoneShellBridge {
     this.lastGameState = next || this.lastGameState;
     if (!this.shell) return;
 
+    // PAUSE is a full presentation pause. WAVE_CHOICE deliberately shares the
+    // Shell's paused phase but keeps presentation audio alive: it is gameplay,
+    // not a browser/app suspension.
+    const shouldSuspendPresentation = this.lastGameState === 'PAUSE';
+    if (shouldSuspendPresentation && !this.presentationSuspended) {
+      this.suspendPresentation('game-pause');
+    } else if (!shouldSuspendPresentation && this.presentationSuspended) {
+      this.resumePresentation('game-resume');
+    }
+
     const phase = PHASE_BY_STATE[this.lastGameState] || 'menu';
     this.shell.session.setPhase(phase);
     this.shell.studio?.telemetry?.record('inkstone.state', {
       from: prev || null,
       to: this.lastGameState,
       phase,
+      presentationSuspended: this.presentationSuspended,
     });
+  }
+
+  suspendPresentation(reason = 'unspecified') {
+    if (this.presentationSuspended) return;
+    this.presentationSuspended = true;
+    this.event('lifecycle.suspend', { reason });
+    settle(
+      () => this.lifecycle.suspendAudio?.(reason),
+      (error) => this.lifecycleError('suspend-audio', error),
+    );
+  }
+
+  resumePresentation(reason = 'unspecified') {
+    if (!this.presentationSuspended) return;
+    this.presentationSuspended = false;
+    this.event('lifecycle.resume', { reason });
+    settle(
+      () => this.lifecycle.resumeAudio?.(reason),
+      (error) => this.lifecycleError('resume-audio', error),
+    );
+  }
+
+  lifecycleError(scope, error) {
+    this.shell?.studio?.diagnostics?.capture?.(error, { scope: `inkstone.lifecycle.${scope}` });
+    this.event('lifecycle.error', {
+      scope,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  requestPauseForBrowser(reason) {
+    // Never pause menus/results, never convert WAVE_CHOICE to a menu pause, and
+    // never auto-resume on focus. The existing Game pause path remains the one
+    // place that clears input and shows the pause UI.
+    if (this.lastGameState !== 'RUN') return false;
+    this.event('lifecycle.pause-request', { reason });
+    try {
+      this.lifecycle.requestPause?.(reason);
+      return true;
+    } catch (error) {
+      this.lifecycleError('request-pause', error);
+      return false;
+    }
+  }
+
+  attachBrowserLifecycle() {
+    if (this.browserLifecycleAttached || typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const onVisibility = () => {
+      if (document.hidden) this.requestPauseForBrowser('document-hidden');
+      else this.event('lifecycle.visible');
+    };
+    const onBlur = () => this.requestPauseForBrowser('window-blur');
+    const onFocus = () => this.event('lifecycle.focus');
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+
+    this.lifecycleDisposers.push(
+      () => document.removeEventListener('visibilitychange', onVisibility),
+      () => window.removeEventListener('blur', onBlur),
+      () => window.removeEventListener('focus', onFocus),
+    );
+    this.browserLifecycleAttached = true;
+    this.event('lifecycle.attached');
+  }
+
+  detachBrowserLifecycle() {
+    for (const dispose of this.lifecycleDisposers.splice(0)) dispose();
+    this.browserLifecycleAttached = false;
   }
 
   runStarted(config = {}) {
@@ -186,6 +288,7 @@ export class InkstoneShellBridge {
   }
 
   async dispose() {
+    this.detachBrowserLifecycle();
     this.devConsole?.dispose();
     this.devConsole = null;
     if (this.shell?.dispose) await this.shell.dispose();
