@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   TelemetryRecorder, InputReplayRecorder, InputReplayPlayer, RuntimeDiagnostics,
-  LocalizationRegistry, ContentValidator, uniqueBy, evaluatePerformanceBudget,
+  LocalizationRegistry, PlayerCopyCatalog, ContentValidator, uniqueBy, evaluatePerformanceBudget,
   Timeline, DevConsoleRegistry, AssetManifest, InputBuffer, applyRadialDeadzone,
-  CertificationRunner, runSmokeFlow, MemoryStorage, SaveManager, SLUWebShell, SettingsStore
+  CertificationRunner, runSmokeFlow, MemoryStorage, SaveManager, SLUWebShell, SettingsStore,
+  buildPlaytestReport, RuntimeConfig, FeatureFlags, PhasePolicy, productionPhasePolicy,
+  DataContentLoader
 } from "../dist/index.js";
 
 class NullRenderer { id = "null"; }
@@ -19,6 +21,20 @@ test("telemetry records context and exports", () => {
   assert.equal(event.atMs, 15);
   assert.equal(event.data.mode, "test");
   assert.match(telemetry.exportCSV(), /level.enter/);
+});
+
+test("playtest reports aggregate level failures and death hotspots", () => {
+  const telemetry = new TelemetryRecorder({ sessionId:"playtest", clock:()=>0 });
+  telemetry.record("level.load", { levelId:"room-1" });
+  telemetry.record("player.death", { levelId:"room-1", x:1.1, y:2, z:4.1 });
+  telemetry.record("player.death", { levelId:"room-1", x:1.2, y:2, z:4.2 });
+  telemetry.record("game.restart", { levelId:"room-1" });
+  telemetry.record("level.complete", { levelId:"room-1" });
+  const report = buildPlaytestReport(telemetry.snapshot(), 2);
+  assert.equal(report.levels["room-1"].loads, 1);
+  assert.equal(report.levels["room-1"].deaths, 2);
+  assert.equal(report.levels["room-1"].completionRate, 1);
+  assert.equal(report.deathHotspots[0].count, 2);
 });
 
 test("replay records and replays actions by time", () => {
@@ -41,6 +57,15 @@ test("localization falls back and audits missing keys", () => {
   assert.deepEqual(i18n.auditKeys(["menu.play","greet"],["fr"]), {fr:["greet"]});
 });
 
+test("player copy requires registered purpose and audits usage", () => {
+  const i18n = new LocalizationRegistry({defaultLocale:"en",fallbackLocale:"en",strict:true});
+  const copy = new PlayerCopyCatalog(i18n);
+  copy.register([{key:"menu.play",purpose:"action",defaultText:"Play"}]);
+  assert.equal(copy.text("menu.play"), "Play");
+  assert.throws(()=>copy.text("decorative.system-name"), /Unregistered player-facing copy/);
+  assert.equal(copy.audit(["en"]).used, 1);
+});
+
 test("content validation and performance budgets expose actionable failures", () => {
   const validator = new ContentValidator().use(items=>uniqueBy(items,item=>item.id));
   const result = validator.validate([{id:"a"},{id:"a"}]);
@@ -48,6 +73,17 @@ test("content validation and performance budgets expose actionable failures", ()
   const perf = evaluatePerformanceBudget({frameMs:20,drawCalls:50},{frameMs:16.7,drawCalls:100});
   assert.equal(perf.ok, false);
   assert.equal(perf.violations[0].metric, "frameMs");
+});
+
+test("data content loader parses and validates authored content", () => {
+  const validator = new ContentValidator().use(items=>uniqueBy(items,item=>item.id));
+  const loader = new DataContentLoader(value=>{
+    if(!value||typeof value!=="object"||typeof value.id!=="string") throw new Error("bad entry");
+    return {id:value.id};
+  }, validator);
+  const loaded = loader.parse({schemaVersion:1,group:"rooms",entries:[{id:"a"},{id:"a"}]});
+  assert.equal(loaded.document.group, "rooms");
+  assert.equal(loaded.validation.ok, false);
 });
 
 test("timeline dispatches ordered cues", () => {
@@ -75,6 +111,22 @@ test("input helpers support buffering and radial deadzones", () => {
   assert.deepEqual(applyRadialDeadzone(0.01,0.01,0.15), {x:0,y:0,magnitude:0});
 });
 
+test("runtime config and feature flags preserve override source", () => {
+  const config = new RuntimeConfig({"feature.photo":false},{quality:"high"});
+  config.applyQuery("?slu.feature.photo=true&slu.difficulty=3");
+  const flags = new FeatureFlags(config);
+  assert.equal(flags.enabled("photo"), true);
+  assert.equal(config.get("difficulty",0), 3);
+  assert.equal(config.source("feature.photo"), "query");
+});
+
+test("phase policy rejects invalid transitions without changing legacy defaults", () => {
+  const strict = new PhasePolicy({boot:["title"],title:["menu"]});
+  assert.equal(strict.allows("boot","title"), true);
+  assert.equal(strict.allows("boot","results"), false);
+  assert.throws(()=>productionPhasePolicy.assert("title","results"), /Invalid game phase transition/);
+});
+
 test("save manager recovers from backup", async () => {
   const storage = new MemoryStorage();
   const saves = new SaveManager(storage,"save",1);
@@ -98,9 +150,11 @@ test("shell exposes studio services and records lifecycle telemetry", async () =
   const settings = SettingsStore.core(storage);
   const shell = new SLUWebShell({build:{gameId:"studio",gameName:"Studio",version:"1"},renderer:new NullRenderer(),settings,studio:{installGlobalDiagnostics:false}});
   await shell.boot();
+  shell.session.setPhase("playing");
   shell.pause(); shell.resume(); shell.restart(); shell.quit();
   const names = shell.studio.telemetry.snapshot().map(event=>event.name);
-  assert.deepEqual(names,["shell.boot","game.pause","game.resume","game.restart","game.quit"]);
+  for (const expected of ["shell.boot","session.phase","game.pause","game.resume","game.restart","game.quit"]) assert.ok(names.includes(expected), expected);
+  assert.equal(shell.studio.copy.audit().registered, 0);
 });
 
 test("runtime diagnostics captures structured errors", () => {
