@@ -51,6 +51,10 @@ jobs:
         working-directory: consumers/inkstone
         run: npm run test:navigation
 
+      - name: Prove release platform contract
+        working-directory: consumers/inkstone
+        run: npm run test:platform
+
       - name: Build Inkstone against live private Shell
         working-directory: consumers/inkstone
         run: npm run build
