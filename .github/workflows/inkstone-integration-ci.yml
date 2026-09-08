@@ -1,0 +1,44 @@
+name: inkstone-integration-ci
+
+on:
+  push:
+    branches: ["integration/inkstone-v0.5"]
+    paths:
+      - "consumers/inkstone/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/inkstone-integration-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify private Shell
+        run: |
+          npm install
+          npm run verify:base
+
+      - name: Install Inkstone workspace
+        working-directory: consumers/inkstone
+        run: npm install
+
+      - name: Prove V0.4 feel-source parity
+        working-directory: consumers/inkstone
+        run: npm run parity
+
+      - name: Build Inkstone against live private Shell
+        working-directory: consumers/inkstone
+        run: npm run build
