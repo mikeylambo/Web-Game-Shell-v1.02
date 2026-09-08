@@ -11,7 +11,8 @@
     "parity": "node tools/verify-v04-source-parity.mjs",
     "test:lifecycle": "node tools/test-shell-lifecycle.mjs",
     "test:persistence": "node tools/test-persistence.mjs",
-    "test:navigation": "node tools/test-navigation.mjs"
+    "test:navigation": "node tools/test-navigation.mjs",
+    "test:platform": "node tools/test-platform.mjs"
   },
   "dependencies": {
     "@slu/web-shell": "file:../..",
