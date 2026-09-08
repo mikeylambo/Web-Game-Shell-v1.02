@@ -1,5 +1,9 @@
 import { createInkstoneShellBridge } from './bridge.js';
 import { InkstonePlatformBridge } from './platform.js';
+import {
+  certificationFacts,
+  runInkstoneCertification,
+} from './certification.js';
 
 /**
  * Compose the already-migrated V0.5 Shell bridge with browser release services.
@@ -32,14 +36,31 @@ export async function createInkstoneReleaseRuntime({
   bridge.platform = platform;
 
   // Move the existing Fullscreen row's implementation behind BrowserPlatform
-  // without replacing the Options screen or its presentation.
+  // without replacing the Options screen or its presentation. The same import
+  // also gives release certification the authoritative player-options schema.
+  let optionDefs = [];
+  let auditOptions = null;
   try {
-    const { OPTION_DEFS } = await import('../playeroptions.js');
-    const fullscreen = OPTION_DEFS.find((option) => option.id === 'fullscreen');
+    const optionsModule = await import('../playeroptions.js');
+    optionDefs = optionsModule.OPTION_DEFS || [];
+    auditOptions = optionsModule.auditOptions || null;
+    const fullscreen = optionDefs.find((option) => option.id === 'fullscreen');
     if (fullscreen) fullscreen.write = () => { void platform.toggleFullscreen(); };
   } catch (error) {
-    platform.reportError('fullscreen-hook', error);
+    platform.reportError('options-release-hook', error);
   }
+
+  const certificationArgs = () => ({ bridge, platform, optionDefs, auditOptions });
+  let lastCertification = null;
+  const runCertification = async () => {
+    lastCertification = await runInkstoneCertification(certificationArgs());
+    bridge.event('certification.complete', {
+      profile: lastCertification.profile,
+      ok: lastCertification.ok,
+      failed: lastCertification.results.filter((result) => result.status === 'fail').map((result) => result.name),
+    });
+    return lastCertification;
+  };
 
   const studio = bridge.shell?.studio;
   if (studio) {
@@ -55,6 +76,15 @@ export async function createInkstoneReleaseRuntime({
         navigation: bridge.navigation?.status() || null,
         persistence: bridge.persistence?.status() || null,
         diagnostics: bridge.shell?.studio?.diagnostics?.snapshot?.().length || 0,
+        performance: bridge.shell?.studio?.frameTimes?.summary?.() || null,
+        certification: lastCertification,
+      }),
+    });
+    studio.dev.registerPanel('Certification', {
+      description: 'Live major-playtest readiness facts and latest certification result',
+      read: () => ({
+        facts: certificationFacts(certificationArgs()),
+        lastCertification,
       }),
     });
     studio.dev.register('inkstone.platform.status', {
@@ -64,6 +94,26 @@ export async function createInkstoneReleaseRuntime({
     studio.dev.register('inkstone.platform.audit', {
       description: 'Audit browser release capabilities and degraded-mode warnings',
       run: () => JSON.stringify(platform.releaseAudit(), null, 2),
+    });
+    studio.dev.register('inkstone.certification.status', {
+      description: 'Show current live certification facts without running the profile',
+      run: () => JSON.stringify(certificationFacts(certificationArgs()), null, 2),
+    });
+    studio.dev.register('inkstone.certification.run', {
+      description: 'Run the live V0.5 major-playtest certification profile',
+      run: async () => JSON.stringify(await runCertification(), null, 2),
+    });
+    studio.dev.register('inkstone.playtest.snapshot', {
+      description: 'Capture parity, platform, performance, diagnostics and certification evidence for a playtest',
+      run: () => JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        version: bridge.version,
+        parity: bridge.paritySnapshot(),
+        platform: platform.status(),
+        performance: bridge.shell?.studio?.frameTimes?.summary?.() || null,
+        diagnostics: bridge.shell?.studio?.diagnostics?.report?.() || null,
+        certification: lastCertification,
+      }, null, 2),
     });
     studio.dev.register('inkstone.release.status', {
       description: 'Show current V0.5 release-runtime ownership status',
@@ -77,12 +127,14 @@ export async function createInkstoneReleaseRuntime({
           'browser-capability-audit', 'resize-lifecycle', 'fullscreen-service',
           'controller-lifecycle-telemetry', 'webgl-context-recovery',
           'runtime-diagnostics', 'player-safe-recovery-surface',
+          'release-certification', 'performance-evidence',
         ],
         inkstoneOwns: [
           'bespoke-screen-presentation', 'menu-focus', 'gameplay-input',
           'three-render-loop', 'fixed-step-sim', 'combat', 'ink-and-glyph-systems',
         ],
         platform: platform.status(),
+        certification: lastCertification,
       }, null, 2),
     });
 
@@ -92,10 +144,11 @@ export async function createInkstoneReleaseRuntime({
     studio.dev.register('inkstone.migration', {
       description: 'Show current V0.5 Shell migration ownership status',
       run: () => JSON.stringify({
-        mode: 'parity-first-release-runtime',
+        mode: 'parity-first-release-certification',
         shellOwns: [
           'app-flow', 'lifecycle', 'persistence-safety', 'settings-mirror',
           'platform-capabilities', 'resize', 'fullscreen', 'recovery', 'diagnostics',
+          'release-certification', 'performance-evidence',
         ],
         inkstoneOwns: [
           'screen-presentation', 'menu-focus', 'gameplay-input',
