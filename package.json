@@ -23,9 +23,15 @@
     "create-game": "node tools/create-slu-game.mjs",
     "verify:base": "npm run check && npm test",
     "verify:consumers": "node tools/verify-consumers.mjs",
+    "certify:web": "node tools/slu-certify.mjs web",
+    "certify:mobile": "node tools/slu-certify.mjs mobile",
+    "certify:controller": "node tools/slu-certify.mjs controller",
+    "certify:release": "node tools/slu-certify.mjs release",
     "setup:img2threejs": "powershell -ExecutionPolicy Bypass -File tools/setup-img2threejs.ps1"
   },
   "devDependencies": {
+    "@types/three": "^0.180.0",
+    "three": "^0.180.0",
     "typescript": "^5.8.3"
   },
   "keywords": [
@@ -38,6 +44,7 @@
   ],
   "license": "UNLICENSED",
   "bin": {
-    "create-slu-game": "./tools/create-slu-game.mjs"
+    "create-slu-game": "./tools/create-slu-game.mjs",
+    "slu-certify": "./tools/slu-certify.mjs"
   }
 }
