@@ -13,6 +13,8 @@ export * from "./economy/EconomyManager.js";
 export * from "./garage/GarageManager.js";
 export * from "./progression/ProgressionManager.js";
 export * from "./multiplayer/PlayerAssignment.js";
+export * from "./multiplayer/CompanionSession.js";
+export * from "./multiplayer/CompanionTransport.js";
 export * from "./rules/RulesetManager.js";
 export * from "./dialogue/DialogueManager.js";
 export * from "./quests/QuestManager.js";

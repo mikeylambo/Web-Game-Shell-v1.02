@@ -11,7 +11,8 @@ export type FrameId =
   | "rpg"
   | "strategy"
   | "platformer"
-  | "party-multiplayer";
+  | "party-multiplayer"
+  | "companion-adventure";
 
 export type FlowPhase =
   | "boot"
