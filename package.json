@@ -21,10 +21,12 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "budget": "node tools/slu-budget.mjs",
-    "verify": "npm run verify:base && npm run verify:consumers && npm run budget",
+    "verify": "npm run verify:base && npm run verify:consumers && npm run check:examples && npm run budget",
     "create-game": "node tools/create-slu-game.mjs",
     "verify:base": "npm run check && npm test",
     "verify:consumers": "node tools/verify-consumers.mjs",
+    "check:examples": "node --check examples/companion-dungeon/server.mjs && node --check examples/companion-dungeon/host.js && node --check examples/companion-dungeon/phone.js",
+    "demo:companion-dungeon": "npm run build && node examples/companion-dungeon/server.mjs",
     "certify:web": "npm run verify && node tools/slu-certify.mjs web",
     "certify:mobile": "npm run verify && node tools/slu-certify.mjs mobile",
     "certify:controller": "npm run verify && node tools/slu-certify.mjs controller",
@@ -35,19 +37,5 @@
     "@types/three": "^0.180.0",
     "three": "^0.180.0",
     "typescript": "^5.8.3"
-  },
-  "keywords": [
-    "game",
-    "webgame",
-    "threejs",
-    "babylonjs",
-    "canvas2d",
-    "slu"
-  ],
-  "license": "UNLICENSED",
-  "bin": {
-    "create-slu-game": "./tools/create-slu-game.mjs",
-    "slu-certify": "./tools/slu-certify.mjs",
-    "slu-budget": "./tools/slu-budget.mjs"
   }
 }
