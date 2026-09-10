@@ -7,6 +7,7 @@ Portable workflow skills for SLU projects. The shared constitution in the root `
 - `slu-commercial-foundation` — inherit solved commercial genre structure quickly and differentiate through the real hook.
 - `slu-content-expansion` — build substantial content through deep composition before mechanic proliferation.
 - `slu-difficulty-balance` — scale information and execution before raw stats.
+- `slu-companion-multiplayer` — build host-authoritative shared-display + personal-screen games with strict public/private state boundaries.
 
 ## Visuals and feel
 - `slu-reference-language` — extract transferable art direction from references.
