@@ -14,6 +14,7 @@ import type { RendererAdapter } from "./adapters/RendererAdapter.js";
 import type { SettingsStore } from "./persistence/SettingsStore.js";
 import { StudioServices, type StudioServicesOptions } from "./studio/StudioServices.js";
 import { ProductionServices,type ProductionServicesOptions } from "./studio/ProductionServices.js";
+import { createPlaytestBundle,exportPlaytestBundle as serializePlaytestBundle,type PlaytestBundleExtras,type PlaytestBundleV1 } from "./diagnostics/PlaytestBundle.js";
 
 export interface ShellEvents {
   "game:pause":undefined;"game:resume":undefined;"game:restart":undefined;"game:quit":undefined;
@@ -50,6 +51,7 @@ export class SLUWebShell<TSettings extends object>{
     this.studio.dev.register("state.level",{description:"Show last loaded level id",run:()=>this.lastLevelId??"none"});
     this.studio.dev.register("state.settings",{description:"Show active settings snapshot",run:()=>JSON.stringify(this.settings.snapshot(),null,2)});
     this.studio.dev.register("state.production",{description:"Show reusable production service state",run:()=>JSON.stringify({entitlement:this.production.entitlements.current,narrative:this.production.narrative.sequenceId,codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot(),transition:this.production.transitions.current,notifications:this.production.notifications.list(),onboarding:{flowId:this.production.onboarding.flowId,current:this.production.onboarding.current?.id??null,state:this.production.onboarding.snapshot()}},null,2)});
+    this.studio.dev.register("playtest.bundle",{description:"Export the unified shell crash/playtest bundle",run:()=>this.exportPlaytestBundle()});
     this.studio.dev.register("game.pause",{description:"Pause active gameplay",run:()=>this.pause()});
     this.studio.dev.register("game.resume",{description:"Resume paused gameplay",run:()=>this.resume()});
     this.studio.dev.register("game.restart",{description:"Emit the game restart request",run:()=>this.restart()});
@@ -61,6 +63,19 @@ export class SLUWebShell<TSettings extends object>{
   }
   get build():BuildInfo{return this.options.build;} get renderer():RendererAdapter{return this.options.renderer;}
   get settings():SettingsStore<TSettings>{return this.options.settings;}
+  capturePlaytestBundle(extras:PlaytestBundleExtras={}):PlaytestBundleV1{
+    return createPlaytestBundle({
+      build:this.build,
+      phase:this.session.phase,
+      levelId:this.lastLevelId,
+      inputFamily:this.production.glyphs.activeFamily,
+      settings:this.settings.snapshot(),
+      production:this.production.snapshotState(),
+      studio:this.studio.debugBundle(),
+      ...extras
+    });
+  }
+  exportPlaytestBundle(extras:PlaytestBundleExtras={},pretty=true):string{return serializePlaytestBundle(this.capturePlaytestBundle(extras),pretty);}
   async boot():Promise<void>{
     this.session.start();this.studio.start();
     try{this.session.setPhase("title");await this.renderer.start?.();}
