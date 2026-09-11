@@ -14,6 +14,7 @@ export * from "./input/InputManager.js";
 export * from "./input/PointerLook.js";
 export * from "./input/InputAssist.js";
 export * from "./input/InputGlyphs.js";
+export * from "./input/GyroLook.js";
 
 export * from "./platform/browser/BrowserStorage.js";
 export * from "./platform/browser/IndexedDBStorage.js";
