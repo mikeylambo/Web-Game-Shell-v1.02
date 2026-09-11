@@ -57,6 +57,7 @@ export * from "./telemetry/Telemetry.js";
 export * from "./telemetry/PlaytestReport.js";
 export * from "./replay/InputReplay.js";
 export * from "./replay/PoseGhost.js";
+export * from "./replay/GhostStore.js";
 export * from "./diagnostics/RuntimeDiagnostics.js";
 export * from "./diagnostics/RecoveryUI.js";
 export * from "./localization/Localization.js";
