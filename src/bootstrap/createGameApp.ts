@@ -4,6 +4,7 @@ import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
+import type { ProductionServicesOptions } from "../studio/ProductionServices.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
@@ -19,6 +20,7 @@ export interface CreateGameAppOptions {
   root: HTMLElement;
   assemblies: Array<(shell: SLUWebShell<any>) => FrameAssembly>;
   flow?: GameFlowOptions;
+  production?:ProductionServicesOptions;
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
@@ -33,7 +35,8 @@ export async function createGameApp(options: CreateGameAppOptions) {
       version: options.version
     },
     renderer: options.renderer,
-    settings
+    settings,
+    production:options.production
   });
 
   const composer = new AssemblyComposer(shell);
