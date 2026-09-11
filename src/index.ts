@@ -25,6 +25,7 @@ export * from "./platform/browser/BrowserLifecycle.js";
 export * from "./platform/browser/BrowserHaptics.js";
 export * from "./platform/browser/BrowserShare.js";
 export * from "./platform/browser/MobileViewport.js";
+export * from "./platform/browser/InputFamilyDetector.js";
 export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
