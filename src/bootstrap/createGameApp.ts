@@ -2,6 +2,7 @@ import type { RendererAdapter } from "../adapters/RendererAdapter.js";
 import { BrowserStorage } from "../platform/browser/BrowserStorage.js";
 import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
+import { BrowserInputFamilyDetector } from "../platform/browser/InputFamilyDetector.js";
 import { installMobileViewportPolicy,type MobileViewportOptions } from "../platform/browser/MobileViewport.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
@@ -84,6 +85,12 @@ export async function createGameApp(options: CreateGameAppOptions) {
   shell.input.setBindings(bindings);
   const source = new BrowserInputSource(bindings);
   source.attach();
+  const inputFamily=new BrowserInputFamilyDetector({onChange:(family)=>{
+    shell.production.glyphs.setFamily(family);
+    shell.studio.telemetry.record("input.family",{family});
+  }});
+  inputFamily.attach();
+  shell.production.glyphs.setFamily(inputFamily.activeFamily);
 
   const audioLifecycle=options.audio?new AudioLifecycleCoordinator(options.audio):null;
   audioLifecycle?.installVisibility();
@@ -99,6 +106,7 @@ export async function createGameApp(options: CreateGameAppOptions) {
 
   const poll = () => {
     shell.input.update(source.poll());
+    inputFamily.sampleGamepads();
     if (shell.input.wasPressed("pause") && shell.session.phase === "playing") flow.showPause();
     requestAnimationFrame(poll);
   };
@@ -108,5 +116,5 @@ export async function createGameApp(options: CreateGameAppOptions) {
   ui.startInputLoop();
   flow.start();
 
-  return { shell, composer, ui, flow, storage, settings, audioLifecycle, removeViewportPolicy };
+  return { shell, composer, ui, flow, storage, settings, audioLifecycle, inputFamily, removeViewportPolicy };
 }
