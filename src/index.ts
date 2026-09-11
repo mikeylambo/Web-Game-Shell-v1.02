@@ -67,6 +67,7 @@ export * from "./replay/InputReplay.js";
 export * from "./replay/PoseGhost.js";
 export * from "./replay/GhostStore.js";
 export * from "./diagnostics/RuntimeDiagnostics.js";
+export * from "./diagnostics/PlaytestBundle.js";
 export * from "./diagnostics/RecoveryUI.js";
 export * from "./localization/Localization.js";
 export * from "./localization/PlayerCopy.js";
