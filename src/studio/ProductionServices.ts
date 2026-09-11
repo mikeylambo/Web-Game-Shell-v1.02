@@ -5,7 +5,7 @@ import { EntitlementManager,type EntitlementState } from "../release/Entitlement
 import { CreditsRegistry } from "../release/Credits.js";
 import { PhotoModeController } from "../photo/PhotoMode.js";
 import { InputGlyphRegistry } from "../input/InputGlyphs.js";
-import { CheckpointManager } from "../persistence/Checkpoints.js";
+import { CheckpointManager } from "../modules/checkpoints/CheckpointManager.js";
 
 export interface ProductionServicesOptions {
   achievementProvider?:AchievementProvider;
