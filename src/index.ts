@@ -46,6 +46,7 @@ export * from "./game/Rewards.js";
 export * from "./game/UnlockManager.js";
 export * from "./game/StatsManager.js";
 export * from "./game/Achievements.js";
+export * from "./game/ScheduledSeeds.js";
 
 export * from "./ui/ScreenManager.js";
 export * from "./ui/FocusManager.js";
