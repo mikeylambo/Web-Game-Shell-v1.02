@@ -33,11 +33,13 @@ export class GameFlowController {
   ) {}
 
   start(): void {
+    this.shell.session.setPhase("title");
     this.ui.show("title");
   }
 
   onActivate(screenId: string, choiceId: string): void {
     if (screenId === "title" && choiceId === "start") {
+      this.shell.session.setPhase("menu");
       this.ui.show("main-menu");
       return;
     }
@@ -85,6 +87,7 @@ export class GameFlowController {
         this.showSettings("pause");
       } else if (choiceId === "quit") {
         this.shell.quit();
+        this.shell.production.transitions.end();
         this.ui.show("main-menu");
       }
       return;
@@ -95,8 +98,10 @@ export class GameFlowController {
         this.shell.restart();
         this.launch();
       } else if (choiceId === "menu") {
+        this.shell.session.setPhase("menu");
         this.ui.show("main-menu");
       } else if (choiceId === "continue") {
+        this.shell.session.setPhase("menu");
         this.ui.show("mode-select");
       }
     }
@@ -151,9 +156,11 @@ export class GameFlowController {
 
   private launch(): void {
     const id = this.selectedMode ?? "default";
+    this.shell.production.transitions.start({id:`level:${id}`,kind:"loading",message:"Loading"});
     void this.shell.loadLevel(id).then(() => {
+      this.shell.production.transitions.end(`level:${id}`);
       this.ui.show("gameplay-placeholder");
-    });
+    }).catch(() => this.shell.production.transitions.end(`level:${id}`));
   }
 
   private showSettings(backTarget = "main-menu"): void {
