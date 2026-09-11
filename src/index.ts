@@ -3,6 +3,7 @@ export * from "./core/EventBus.js";
 export * from "./core/StateMachine.js";
 export * from "./core/GameSession.js";
 export * from "./core/PhasePolicy.js";
+export * from "./core/DeterministicRNG.js";
 export * from "./Shell.js";
 
 export * from "./persistence/StorageAdapter.js";
