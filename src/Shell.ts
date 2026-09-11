@@ -13,6 +13,7 @@ import { ContentRegistry } from "./content/ContentRegistry.js";
 import type { RendererAdapter } from "./adapters/RendererAdapter.js";
 import type { SettingsStore } from "./persistence/SettingsStore.js";
 import { StudioServices, type StudioServicesOptions } from "./studio/StudioServices.js";
+import { ProductionServices,type ProductionServicesOptions } from "./studio/ProductionServices.js";
 
 export interface ShellEvents {
   "game:pause":undefined;"game:resume":undefined;"game:restart":undefined;"game:quit":undefined;
@@ -20,22 +21,28 @@ export interface ShellEvents {
   "level:load":{id:string;payload?:unknown};"level:loaded":{id:string};[key:string]:unknown;
 }
 export interface ShellOptions<TSettings extends object>{
-  build:BuildInfo;renderer:RendererAdapter;settings:SettingsStore<TSettings>;unlocks?:UnlockManager;stats?:StatsManager;studio?:StudioServicesOptions;
+  build:BuildInfo;renderer:RendererAdapter;settings:SettingsStore<TSettings>;unlocks?:UnlockManager;stats?:StatsManager;studio?:StudioServicesOptions;production?:ProductionServicesOptions;
 }
 export class SLUWebShell<TSettings extends object>{
   readonly events=new EventBus<ShellEvents>();readonly session=new GameSession();readonly input=new InputManager();
   readonly modes=new ModeManager();readonly objectives=new ObjectiveManager();readonly challenges=new ChallengeManager();
   readonly difficulty=new DifficultyManager();readonly rewards=new RewardManager();readonly unlocks:UnlockManager;
-  readonly stats:StatsManager;readonly content=new ContentRegistry();readonly studio:StudioServices;
+  readonly stats:StatsManager;readonly content=new ContentRegistry();readonly studio:StudioServices;readonly production:ProductionServices;
   private lastLevelId:string|null=null;
   constructor(readonly options:ShellOptions<TSettings>){
-    this.unlocks=options.unlocks??new UnlockManager();this.stats=options.stats??new StatsManager();this.studio=new StudioServices(options.build,options.studio);
+    this.unlocks=options.unlocks??new UnlockManager();this.stats=options.stats??new StatsManager();this.studio=new StudioServices(options.build,options.studio);this.production=new ProductionServices(options.production);
     this.session.events.on("phase:changed",({from,to})=>this.studio.telemetry.record("session.phase",{from,to}));
     this.session.events.on("session:ended",({durationMs})=>this.studio.telemetry.record("session.end",{durationMs}));
+    this.production.achievements.events.on("achievement:unlocked",achievement=>this.studio.telemetry.record("achievement.unlocked",{id:achievement.id}));
+    this.production.narrative.events.on("narrative:start",({sequenceId})=>this.studio.telemetry.record("narrative.start",{sequenceId}));
+    this.production.narrative.events.on("narrative:end",({sequenceId,skipped})=>this.studio.telemetry.record("narrative.end",{sequenceId,skipped}));
+    this.production.codex.events.on("codex:unlocked",entry=>this.studio.telemetry.record("codex.unlocked",{id:entry.id,category:entry.category}));
+    this.production.photo.events.on("photo:capture",()=>this.studio.telemetry.record("photo.capture"));
     this.studio.dev.register("state.phase",{description:"Show active game phase",run:()=>this.session.phase});
     this.studio.dev.register("state.build",{description:"Show build metadata",run:()=>JSON.stringify(this.build,null,2)});
     this.studio.dev.register("state.level",{description:"Show last loaded level id",run:()=>this.lastLevelId??"none"});
     this.studio.dev.register("state.settings",{description:"Show active settings snapshot",run:()=>JSON.stringify(this.settings.snapshot(),null,2)});
+    this.studio.dev.register("state.production",{description:"Show reusable production service state",run:()=>JSON.stringify({entitlement:this.production.entitlements.current,narrative:this.production.narrative.sequenceId,codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot()},null,2)});
     this.studio.dev.register("game.pause",{description:"Pause active gameplay",run:()=>this.pause()});
     this.studio.dev.register("game.resume",{description:"Resume paused gameplay",run:()=>this.resume()});
     this.studio.dev.register("game.restart",{description:"Emit the game restart request",run:()=>this.restart()});
@@ -43,6 +50,7 @@ export class SLUWebShell<TSettings extends object>{
     this.studio.dev.register("level.load",{description:"Load a level by id",run:async({args})=>{const id=args[0];if(!id)throw new Error("Usage: level.load <id>");await this.loadLevel(id);return `loaded ${id}`;}});
     this.studio.dev.registerPanel("State",{description:"Shell, build, settings and level state",read:()=>({phase:this.session.phase,levelId:this.lastLevelId,build:this.build,settings:this.settings.snapshot()})});
     this.studio.dev.registerPanel("Input",{description:"Semantic input actions",read:()=>Object.fromEntries(this.input.actions().map(action=>[action,this.input.get(action)]))});
+    this.studio.dev.registerPanel("Production",{description:"Narrative, entitlement, codex and photo-mode state",read:()=>({entitlement:this.production.entitlements.current,narrative:{active:this.production.narrative.isActive,sequenceId:this.production.narrative.sequenceId,beat:this.production.narrative.current?.id??null},codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot()})});
   }
   get build():BuildInfo{return this.options.build;} get renderer():RendererAdapter{return this.options.renderer;}
   get settings():SettingsStore<TSettings>{return this.options.settings;}
