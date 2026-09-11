@@ -30,6 +30,7 @@ const requiredScripts = [...new Set([...(config.requiredScripts ?? []), ...(sele
 const requiredDeclarations = [...new Set(selected.requiredDeclarations ?? [])];
 const declarations = new Set(config.declarations ?? []);
 const forbiddenTokens = [...new Set([...(config.forbiddenSourceTokens ?? []), ...(selected.forbiddenSourceTokens ?? [])])];
+const requiredJsonFields = {...(config.requiredJsonFields??{}),...(selected.requiredJsonFields??{})};
 const results = [];
 
 function record(name, ok, message = "") {
@@ -44,6 +45,18 @@ for (const script of requiredScripts) {
 }
 for (const declaration of requiredDeclarations) {
   record(`capability:${declaration}`, declarations.has(declaration), `declare capability '${declaration}' in slu-certification.json`);
+}
+for(const [relative,fields] of Object.entries(requiredJsonFields)){
+  const absolute=path.join(root,relative);
+  if(!fs.existsSync(absolute)){record(`json:${relative}`,false,`required JSON file ${relative}`);continue;}
+  let data=null;
+  try{data=JSON.parse(fs.readFileSync(absolute,"utf8"));record(`json:${relative}`,true,"valid JSON");}
+  catch(error){record(`json:${relative}`,false,error instanceof Error?error.message:String(error));continue;}
+  for(const field of fields??[]){
+    const value=String(field).split(".").reduce((current,key)=>current?.[key],data);
+    const present=value!==undefined&&value!==null&&value!=="";
+    record(`json-field:${relative}:${field}`,present,`required JSON field ${field}`);
+  }
 }
 
 function walk(dir) {

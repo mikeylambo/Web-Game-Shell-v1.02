@@ -2,8 +2,12 @@ import type { RendererAdapter } from "../adapters/RendererAdapter.js";
 import { BrowserStorage } from "../platform/browser/BrowserStorage.js";
 import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
+import { installMobileViewportPolicy,type MobileViewportOptions } from "../platform/browser/MobileViewport.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
+import type { ProductionServicesOptions } from "../studio/ProductionServices.js";
+import type { AudioSystem } from "../audio/AudioContract.js";
+import { AudioLifecycleCoordinator } from "../audio/AudioLifecycle.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
@@ -19,12 +23,16 @@ export interface CreateGameAppOptions {
   root: HTMLElement;
   assemblies: Array<(shell: SLUWebShell<any>) => FrameAssembly>;
   flow?: GameFlowOptions;
+  production?:ProductionServicesOptions;
+  audio?:AudioSystem;
+  mobileViewport?:false|MobileViewportOptions;
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
   const storage = new BrowserStorage(options.gameId);
   const settings = SettingsStore.core(storage);
   await settings.load();
+  const removeViewportPolicy=options.mobileViewport===false?null:installMobileViewportPolicy(options.mobileViewport??{});
 
   const shell = new SLUWebShell({
     build: {
@@ -33,7 +41,8 @@ export async function createGameApp(options: CreateGameAppOptions) {
       version: options.version
     },
     renderer: options.renderer,
-    settings
+    settings,
+    production:options.production
   });
 
   const composer = new AssemblyComposer(shell);
@@ -76,6 +85,12 @@ export async function createGameApp(options: CreateGameAppOptions) {
   const source = new BrowserInputSource(bindings);
   source.attach();
 
+  const audioLifecycle=options.audio?new AudioLifecycleCoordinator(options.audio):null;
+  audioLifecycle?.installVisibility();
+  shell.events.on("game:pause",()=>audioLifecycle?.setGamePaused(true));
+  shell.events.on("game:resume",()=>audioLifecycle?.setGamePaused(false));
+  shell.events.on("game:quit",()=>audioLifecycle?.setGamePaused(false));
+
   const platform = new BrowserPlatform();
   platform.onResize((width, height, dpr) => options.renderer.resize?.(width, height, dpr));
   platform.onVisibilityChange((hidden) => {
@@ -93,5 +108,5 @@ export async function createGameApp(options: CreateGameAppOptions) {
   ui.startInputLoop();
   flow.start();
 
-  return { shell, composer, ui, flow, storage, settings };
+  return { shell, composer, ui, flow, storage, settings, audioLifecycle, removeViewportPolicy };
 }
