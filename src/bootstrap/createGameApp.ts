@@ -9,6 +9,8 @@ import { SLUWebShell } from "../Shell.js";
 import type { ProductionServicesOptions } from "../studio/ProductionServices.js";
 import type { AudioSystem } from "../audio/AudioContract.js";
 import { AudioLifecycleCoordinator } from "../audio/AudioLifecycle.js";
+import { AudioMixer } from "../audio/AudioMixer.js";
+import { bindAudioSettings } from "../audio/AudioSettingsSync.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
@@ -92,6 +94,8 @@ export async function createGameApp(options: CreateGameAppOptions) {
   inputFamily.attach();
   shell.production.glyphs.setFamily(inputFamily.activeFamily);
 
+  const audioMixer=options.audio?new AudioMixer(options.audio):null;
+  const unbindAudioSettings=audioMixer?bindAudioSettings(settings,audioMixer):null;
   const audioLifecycle=options.audio?new AudioLifecycleCoordinator(options.audio):null;
   audioLifecycle?.installVisibility();
   shell.events.on("game:pause",()=>audioLifecycle?.setGamePaused(true));
@@ -116,5 +120,5 @@ export async function createGameApp(options: CreateGameAppOptions) {
   ui.startInputLoop();
   flow.start();
 
-  return { shell, composer, ui, flow, storage, settings, audioLifecycle, inputFamily, removeViewportPolicy };
+  return { shell, composer, ui, flow, storage, settings, audioMixer, audioLifecycle, unbindAudioSettings, inputFamily, removeViewportPolicy };
 }
