@@ -4,6 +4,7 @@ import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
 import { BrowserInputFamilyDetector } from "../platform/browser/InputFamilyDetector.js";
 import { installMobileViewportPolicy,type MobileViewportOptions } from "../platform/browser/MobileViewport.js";
+import { PWAController } from "../pwa/PWAController.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
 import type { ProductionServicesOptions } from "../studio/ProductionServices.js";
@@ -29,6 +30,7 @@ export interface CreateGameAppOptions {
   production?:ProductionServicesOptions;
   audio?:AudioSystem;
   mobileViewport?:false|MobileViewportOptions;
+  pwa?:false|{serviceWorkerUrl?:string;scope?:string};
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
@@ -102,6 +104,17 @@ export async function createGameApp(options: CreateGameAppOptions) {
   shell.events.on("game:resume",()=>audioLifecycle?.setGamePaused(false));
   shell.events.on("game:quit",()=>audioLifecycle?.setGamePaused(false));
 
+  const pwa=options.pwa===false?null:new PWAController();
+  pwa?.attach();
+  pwa?.events.on("pwa:online",()=>shell.studio.telemetry.record("pwa.online"));
+  pwa?.events.on("pwa:offline",()=>shell.studio.telemetry.record("pwa.offline"));
+  pwa?.events.on("pwa:install-available",()=>shell.studio.telemetry.record("pwa.install_available"));
+  pwa?.events.on("pwa:installed",()=>shell.studio.telemetry.record("pwa.installed"));
+  pwa?.events.on("pwa:update-ready",()=>shell.studio.telemetry.record("pwa.update_ready"));
+  if(pwa&&options.pwa&&options.pwa.serviceWorkerUrl){
+    void pwa.register(options.pwa.serviceWorkerUrl,options.pwa.scope?{scope:options.pwa.scope}:undefined).catch(error=>shell.studio.diagnostics.capture(error,{scope:"pwa.register"}));
+  }
+
   const platform = new BrowserPlatform();
   platform.onResize((width, height, dpr) => options.renderer.resize?.(width, height, dpr));
   platform.onVisibilityChange((hidden) => {
@@ -120,5 +133,5 @@ export async function createGameApp(options: CreateGameAppOptions) {
   ui.startInputLoop();
   flow.start();
 
-  return { shell, composer, ui, flow, storage, settings, audioMixer, audioLifecycle, unbindAudioSettings, inputFamily, removeViewportPolicy };
+  return { shell, composer, ui, flow, storage, settings, audioMixer, audioLifecycle, unbindAudioSettings, inputFamily, pwa, removeViewportPolicy };
 }
