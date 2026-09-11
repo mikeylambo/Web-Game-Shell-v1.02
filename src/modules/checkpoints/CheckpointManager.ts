@@ -13,6 +13,8 @@ export interface CheckpointEvents<T = unknown> {
   [key: string]: unknown;
 }
 
+export interface CheckpointSnapshot<T = unknown>{activeId:string|null;checkpoints:Checkpoint<T>[];}
+
 export class CheckpointManager<TState = unknown> {
   readonly events = new EventBus<CheckpointEvents<TState>>();
   private checkpoints = new Map<string, Checkpoint<TState>>();
@@ -54,6 +56,12 @@ export class CheckpointManager<TState = unknown> {
   }
 
   active(): string | null { return this.activeId; }
+  snapshot():CheckpointSnapshot<TState>{return{activeId:this.activeId,checkpoints:[...this.checkpoints.values()].map(item=>structuredClone(item))};}
+  hydrate(snapshot:Partial<CheckpointSnapshot<TState>>):void{
+    this.checkpoints.clear();
+    for(const checkpoint of snapshot.checkpoints??[])this.checkpoints.set(checkpoint.id,structuredClone(checkpoint));
+    this.activeId=snapshot.activeId&&this.checkpoints.has(snapshot.activeId)?snapshot.activeId:null;
+  }
 
   clear(): void {
     this.checkpoints.clear();

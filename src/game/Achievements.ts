@@ -16,4 +16,6 @@ export class AchievementManager {
     this.events.emit("achievement:unlocked",structuredClone(def));return true;
   }
   has(id:string):boolean{return this.unlocked.has(id);}
+  snapshot():{unlocked:string[]}{return{unlocked:[...this.unlocked]};}
+  hydrate(state:{unlocked?:readonly string[]}):void{this.unlocked.clear();for(const id of state.unlocked??[])if(this.definitions.has(id))this.unlocked.add(id);}
 }
