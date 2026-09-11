@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {DeterministicRngRegistry,stableHashString} from "../dist/index.js";
+import {DeterministicRngRegistry,stableHashString,scheduledSeed} from "../dist/index.js";
 
 test("deterministic RNG streams reproduce independently",()=>{
   const names=["layout","ai","offers"];
@@ -17,4 +17,11 @@ test("deterministic RNG streams reproduce independently",()=>{
 test("string hashing is stable",()=>{
   assert.equal(stableHashString("blinkfall"),stableHashString("blinkfall"));
   assert.notEqual(stableHashString("blinkfall"),stableHashString("descent"));
+});
+
+test("scheduled daily and weekly seeds are stable within their windows",()=>{
+  const a=scheduledSeed("blinkfall","daily",new Date("2026-09-11T02:00:00Z"));
+  const b=scheduledSeed("blinkfall","daily",new Date("2026-09-11T22:00:00Z"));
+  const week=scheduledSeed("blinkfall","weekly",new Date("2026-09-11T22:00:00Z"));
+  assert.equal(a.seed,b.seed);assert.equal(a.key,b.key);assert.notEqual(a.seed,week.seed);
 });
