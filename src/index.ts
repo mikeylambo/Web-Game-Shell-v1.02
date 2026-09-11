@@ -30,6 +30,8 @@ export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
 export * from "./audio/AudioLifecycle.js";
+export * from "./audio/AudioMixer.js";
+export * from "./audio/AudioSettingsSync.js";
 export * from "./accessibility/Accessibility.js";
 export * from "./accessibility/Presets.js";
 export * from "./content/ContentRegistry.js";
