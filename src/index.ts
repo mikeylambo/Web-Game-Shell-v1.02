@@ -53,6 +53,8 @@ export * from "./game/ScheduledSeeds.js";
 export * from "./game/RunDescriptor.js";
 export * from "./onboarding/OnboardingManager.js";
 
+export * from "./pwa/WebManifest.js";
+export * from "./pwa/PWAController.js";
 export * from "./ui/ScreenManager.js";
 export * from "./ui/FocusManager.js";
 export * from "./ui/UIStress.js";
