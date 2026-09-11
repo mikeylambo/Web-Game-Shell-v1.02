@@ -42,11 +42,14 @@ export class SLUWebShell<TSettings extends object>{
     this.production.transitions.events.on("transition:start",item=>this.studio.telemetry.record("transition.start",{id:item.id,kind:item.kind}));
     this.production.transitions.events.on("transition:end",({id})=>this.studio.telemetry.record("transition.end",{id}));
     this.production.cinematics.events.on("cinematic:directive",directive=>this.studio.telemetry.record("cinematic.directive",{kind:directive.kind}));
+    this.production.onboarding.events.on("onboarding:lesson",({flowId,lesson,index})=>this.studio.telemetry.record("onboarding.lesson",{flowId:flowId??"contextual",lessonId:lesson.id,index}));
+    this.production.onboarding.events.on("onboarding:flow-complete",({flowId})=>this.studio.telemetry.record("onboarding.complete",{flowId}));
+    this.production.onboarding.events.on("onboarding:flow-skip",({flowId})=>this.studio.telemetry.record("onboarding.skip",{flowId}));
     this.studio.dev.register("state.phase",{description:"Show active game phase",run:()=>this.session.phase});
     this.studio.dev.register("state.build",{description:"Show build metadata",run:()=>JSON.stringify(this.build,null,2)});
     this.studio.dev.register("state.level",{description:"Show last loaded level id",run:()=>this.lastLevelId??"none"});
     this.studio.dev.register("state.settings",{description:"Show active settings snapshot",run:()=>JSON.stringify(this.settings.snapshot(),null,2)});
-    this.studio.dev.register("state.production",{description:"Show reusable production service state",run:()=>JSON.stringify({entitlement:this.production.entitlements.current,narrative:this.production.narrative.sequenceId,codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot(),transition:this.production.transitions.current,notifications:this.production.notifications.list()},null,2)});
+    this.studio.dev.register("state.production",{description:"Show reusable production service state",run:()=>JSON.stringify({entitlement:this.production.entitlements.current,narrative:this.production.narrative.sequenceId,codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot(),transition:this.production.transitions.current,notifications:this.production.notifications.list(),onboarding:{flowId:this.production.onboarding.flowId,current:this.production.onboarding.current?.id??null,state:this.production.onboarding.snapshot()}},null,2)});
     this.studio.dev.register("game.pause",{description:"Pause active gameplay",run:()=>this.pause()});
     this.studio.dev.register("game.resume",{description:"Resume paused gameplay",run:()=>this.resume()});
     this.studio.dev.register("game.restart",{description:"Emit the game restart request",run:()=>this.restart()});
@@ -54,7 +57,7 @@ export class SLUWebShell<TSettings extends object>{
     this.studio.dev.register("level.load",{description:"Load a level by id",run:async({args})=>{const id=args[0];if(!id)throw new Error("Usage: level.load <id>");await this.loadLevel(id);return `loaded ${id}`;}});
     this.studio.dev.registerPanel("State",{description:"Shell, build, settings and level state",read:()=>({phase:this.session.phase,levelId:this.lastLevelId,build:this.build,settings:this.settings.snapshot()})});
     this.studio.dev.registerPanel("Input",{description:"Semantic input actions",read:()=>Object.fromEntries(this.input.actions().map(action=>[action,this.input.get(action)]))});
-    this.studio.dev.registerPanel("Production",{description:"Narrative, entitlement, codex, photo and presentation state",read:()=>({entitlement:this.production.entitlements.current,narrative:{active:this.production.narrative.isActive,sequenceId:this.production.narrative.sequenceId,beat:this.production.narrative.current?.id??null},codex:this.production.codex.snapshot(),photo:this.production.photo.snapshot(),transition:this.production.transitions.current,notifications:this.production.notifications.list()})});
+    this.studio.dev.registerPanel("Production",{description:"Narrative, entitlement, codex, onboarding, photo and presentation state",read:()=>({entitlement:this.production.entitlements.current,narrative:{active:this.production.narrative.isActive,sequenceId:this.production.narrative.sequenceId,beat:this.production.narrative.current?.id??null},codex:this.production.codex.snapshot(),onboarding:{flowId:this.production.onboarding.flowId,current:this.production.onboarding.current?.id??null,state:this.production.onboarding.snapshot()},photo:this.production.photo.snapshot(),transition:this.production.transitions.current,notifications:this.production.notifications.list()})});
   }
   get build():BuildInfo{return this.options.build;} get renderer():RendererAdapter{return this.options.renderer;}
   get settings():SettingsStore<TSettings>{return this.options.settings;}
