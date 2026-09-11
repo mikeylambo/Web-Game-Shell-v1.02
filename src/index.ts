@@ -89,6 +89,7 @@ export * from "./certification/Certification.js";
 export * from "./certification/ProductionAudit.js";
 export * from "./testing/FlowSmoke.js";
 export * from "./testing/GameFlowHarness.js";
+export * from "./production/SessionCoordinator.js";
 export * from "./studio/StudioServices.js";
 export * from "./studio/ProductionServices.js";
 
