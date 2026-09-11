@@ -1,13 +1,13 @@
 import { EventBus } from "../core/EventBus.js";
 
-export interface DialogueChoice { id:string; label:string; nextBeatId?:string; }
+export interface NarrativeChoice { id:string; label:string; nextBeatId?:string; }
 export interface NarrativeBeat {
   id:string;
   speaker?:string;
   text?:string;
   voiceId?:string;
   durationMs?:number;
-  choices?:DialogueChoice[];
+  choices?:NarrativeChoice[];
   tags?:string[];
   payload?:unknown;
 }
@@ -15,7 +15,7 @@ export interface NarrativeSequence { id:string; beats:NarrativeBeat[]; skippable
 export interface NarrativeEvents {
   "narrative:start":{sequenceId:string};
   "narrative:beat":{sequenceId:string;beat:NarrativeBeat;index:number};
-  "narrative:choice":{sequenceId:string;beatId:string;choice:DialogueChoice};
+  "narrative:choice":{sequenceId:string;beatId:string;choice:NarrativeChoice};
   "narrative:end":{sequenceId:string;skipped:boolean};
   [key:string]:unknown;
 }
