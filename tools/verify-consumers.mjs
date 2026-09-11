@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
 const generator = path.join(root, "tools", "create-slu-game.mjs");
+const certifier = path.join(root, "tools", "slu-certify.mjs");
 const distPackage = root;
 const renderers = ["three", "babylon", "phaser", "canvas2d", "dom"];
 
@@ -67,11 +68,13 @@ try {
 
     // Use the shell repository's compiler so consumer verification adds no new install step.
     run("tsc", ["-p", path.join(out, "tsconfig.json"), "--noEmit"], { cwd: out });
+    // Generated games must also satisfy their own release metadata/capability contract.
+    run(process.execPath, [certifier, "release"], { cwd: out });
 
-    console.log(`PASS consumer: ${renderer}`);
+    console.log(`PASS consumer + release certification: ${renderer}`);
   }
 
-  console.log(`Consumer verification complete: ${renderers.length}/${renderers.length} targets passed.`);
+  console.log(`Consumer verification complete: ${renderers.length}/${renderers.length} targets compiled and release-certified.`);
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }

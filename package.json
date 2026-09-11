@@ -1,7 +1,7 @@
 {
   "name": "@slu/web-shell",
-  "version": "1.0.2",
-  "description": "Renderer-neutral web game shell with composable genre frames and reusable game modules.",
+  "version": "1.1.0",
+  "description": "Renderer-neutral web game shell with composable genre frames and reusable production systems.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

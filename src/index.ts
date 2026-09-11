@@ -25,6 +25,7 @@ export * from "./platform/browser/BrowserLifecycle.js";
 export * from "./platform/browser/BrowserHaptics.js";
 export * from "./platform/browser/BrowserShare.js";
 export * from "./platform/browser/MobileViewport.js";
+export * from "./platform/browser/InputFamilyDetector.js";
 export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
@@ -47,6 +48,7 @@ export * from "./game/UnlockManager.js";
 export * from "./game/StatsManager.js";
 export * from "./game/Achievements.js";
 export * from "./game/ScheduledSeeds.js";
+export * from "./game/RunDescriptor.js";
 
 export * from "./ui/ScreenManager.js";
 export * from "./ui/FocusManager.js";
