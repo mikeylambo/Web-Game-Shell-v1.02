@@ -2,6 +2,7 @@ import type { RendererAdapter } from "../adapters/RendererAdapter.js";
 import { BrowserStorage } from "../platform/browser/BrowserStorage.js";
 import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
+import { installMobileViewportPolicy,type MobileViewportOptions } from "../platform/browser/MobileViewport.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
 import type { ProductionServicesOptions } from "../studio/ProductionServices.js";
@@ -24,12 +25,14 @@ export interface CreateGameAppOptions {
   flow?: GameFlowOptions;
   production?:ProductionServicesOptions;
   audio?:AudioSystem;
+  mobileViewport?:false|MobileViewportOptions;
 }
 
 export async function createGameApp(options: CreateGameAppOptions) {
   const storage = new BrowserStorage(options.gameId);
   const settings = SettingsStore.core(storage);
   await settings.load();
+  const removeViewportPolicy=options.mobileViewport===false?null:installMobileViewportPolicy(options.mobileViewport??{});
 
   const shell = new SLUWebShell({
     build: {
@@ -105,5 +108,5 @@ export async function createGameApp(options: CreateGameAppOptions) {
   ui.startInputLoop();
   flow.start();
 
-  return { shell, composer, ui, flow, storage, settings, audioLifecycle };
+  return { shell, composer, ui, flow, storage, settings, audioLifecycle, removeViewportPolicy };
 }
