@@ -9,6 +9,7 @@ export * from "./Shell.js";
 export * from "./persistence/StorageAdapter.js";
 export * from "./persistence/SettingsStore.js";
 export * from "./persistence/SaveManager.js";
+export * from "./persistence/CloudSyncManager.js";
 
 export * from "./input/InputTypes.js";
 export * from "./input/InputManager.js";
