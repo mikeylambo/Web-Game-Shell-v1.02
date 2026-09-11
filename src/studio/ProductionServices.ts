@@ -12,6 +12,7 @@ import { CinematicDirector } from "../presentation/Cinematics.js";
 import { NotificationCenter } from "../presentation/Notifications.js";
 import { TransitionManager } from "../presentation/Transitions.js";
 import { CaptureService,type CaptureAdapter } from "../presentation/Capture.js";
+import { OnboardingManager } from "../onboarding/OnboardingManager.js";
 
 export interface ProductionServicesOptions {
   achievementProvider?:AchievementProvider;
@@ -35,6 +36,7 @@ export class ProductionServices {
   readonly cinematics=new CinematicDirector();
   readonly notifications=new NotificationCenter();
   readonly transitions=new TransitionManager();
+  readonly onboarding=new OnboardingManager();
   readonly capture:CaptureService;
 
   constructor(options:ProductionServicesOptions={}){
