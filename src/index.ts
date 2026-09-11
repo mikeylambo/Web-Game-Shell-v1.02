@@ -20,6 +20,8 @@ export * from "./platform/browser/IndexedDBStorage.js";
 export * from "./platform/browser/BrowserInputSource.js";
 export * from "./platform/browser/BrowserPlatform.js";
 export * from "./platform/browser/BrowserLifecycle.js";
+export * from "./platform/browser/BrowserHaptics.js";
+export * from "./platform/browser/BrowserShare.js";
 export * from "./platform/PlatformServices.js";
 
 export * from "./audio/AudioContract.js";
