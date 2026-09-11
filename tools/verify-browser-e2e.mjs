@@ -52,8 +52,8 @@ try{
   const debugPort=await waitFor(async()=>{
     if(chrome.exitCode!==null)throw new Error(`Chrome exited early (${chrome.exitCode})${chromeStderr?`\n${chromeStderr}`:""}`);
     try{const [portLine]=String(await fsp.readFile(activePortFile,"utf8")).trim().split(/\r?\n/);const port=Number(portLine);return Number.isInteger(port)&&port>0?port:null;}catch{return null;}
-  },"Chrome DevToolsActivePort");
-  const targets=await waitFor(async()=>{const response=await fetch(`http://127.0.0.1:${debugPort}/json/list`).catch(()=>null);if(!response?.ok)return null;const list=await response.json();return list.find(item=>item.type==="page"&&item.webSocketDebuggerUrl)??null;},"Chrome DevTools target");
+  },"Chrome DevToolsActivePort",20000);
+  const targets=await waitFor(async()=>{const response=await fetch(`http://127.0.0.1:${debugPort}/json/list`).catch(()=>null);if(!response?.ok)return null;const list=await response.json();return list.find(item=>item.type==="page"&&item.webSocketDebuggerUrl)??null;},"Chrome DevTools target",12000);
   cdp=await connect(targets.webSocketDebuggerUrl);
   cdp.on("Runtime.exceptionThrown",params=>browserErrors.push(params.exceptionDetails?.text??"uncaught exception"));
   cdp.on("Log.entryAdded",params=>{if(params.entry?.level==="error")browserErrors.push(`error: ${params.entry.text}`);});
