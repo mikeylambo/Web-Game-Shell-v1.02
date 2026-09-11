@@ -68,6 +68,7 @@ export * from "./presentation/Transitions.js";
 export * from "./presentation/Capture.js";
 export * from "./release/Entitlements.js";
 export * from "./release/Credits.js";
+export * from "./release/ReleaseManifest.js";
 export * from "./photo/PhotoMode.js";
 export * from "./certification/Certification.js";
 export * from "./certification/ProductionAudit.js";
