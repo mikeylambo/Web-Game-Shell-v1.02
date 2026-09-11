@@ -51,6 +51,7 @@ export * from "./game/StatsManager.js";
 export * from "./game/Achievements.js";
 export * from "./game/ScheduledSeeds.js";
 export * from "./game/RunDescriptor.js";
+export * from "./onboarding/OnboardingManager.js";
 
 export * from "./ui/ScreenManager.js";
 export * from "./ui/FocusManager.js";
