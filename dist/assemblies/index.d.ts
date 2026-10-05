@@ -10,3 +10,4 @@ export * from "./rpg.js";
 export * from "./strategy.js";
 export * from "./platformer.js";
 export * from "./partyMultiplayer.js";
+export * from "./companionAdventure.js";

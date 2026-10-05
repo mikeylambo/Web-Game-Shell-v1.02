@@ -17,6 +17,7 @@ const frames = get("frames", "arcade").split(",").map(x => x.trim()).filter(Bool
 const out = path.resolve(get("out", `./${gameId}`));
 
 const assembly = {
+  survivor: "createSurvivorAssembly",
   arcade: "createArcadeAssembly",
   "character-action": "createCharacterActionAssembly",
   "arena-combat": "createArenaCombatAssembly",
@@ -29,6 +30,7 @@ const assembly = {
   "party-multiplayer": "createPartyMultiplayerAssembly"
 };
 const adapter = {
+  pixi: "PixiAdapter",
   three: "createThreeStarterAdapter",
   babylon: "createBabylonStarterAdapter",
   phaser: "PhaserAdapter",
@@ -50,7 +52,9 @@ const selected = frames.map(x => assembly[x]).filter(Boolean);
 fs.mkdirSync(path.join(out, "src"), { recursive: true });
 
 const rendererLine =
- renderer === "dom"
+ renderer === "pixi"
+ ? `const rendererAdapter = new PixiAdapter({}); // attach your Pixi application lifecycle hooks`
+ : renderer === "dom"
  ? `const rendererAdapter = createDOMStarterAdapter(document.getElementById("game")!);`
  : renderer === "phaser"
  ? `const rendererAdapter = new PhaserAdapter(); // wire your Phaser.Game hooks here`

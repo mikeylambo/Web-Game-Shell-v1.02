@@ -2,6 +2,7 @@ import type { InputAction, InputBinding } from "../../input/InputTypes.js";
 
 export class BrowserInputSource {
   private keys = new Set<string>();
+  private taps = new Set<string>();
   private mouseButtons = new Set<number>();
   private connected = false;
 
@@ -11,12 +12,13 @@ export class BrowserInputSource {
     if (this.connected) return () => {};
     this.connected = true;
 
-    const keyDown = (e: KeyboardEvent) => this.keys.add(e.code);
+    const keyDown = (e: KeyboardEvent) => { if (!this.keys.has(e.code)) this.taps.add(e.code); this.keys.add(e.code); };
     const keyUp = (e: KeyboardEvent) => this.keys.delete(e.code);
     const mouseDown = (e: MouseEvent) => this.mouseButtons.add(e.button);
     const mouseUp = (e: MouseEvent) => this.mouseButtons.delete(e.button);
     const blur = () => {
       this.keys.clear();
+      this.taps.clear();
       this.mouseButtons.clear();
     };
 
@@ -43,7 +45,7 @@ export class BrowserInputSource {
     for (const binding of this.bindings) {
       let value = 0;
 
-      if (binding.keyboard?.some((code) => this.keys.has(code))) value = 1;
+      if (binding.keyboard?.some((code) => (this.keys.has(code) || this.taps.has(code)))) value = 1;
       if (binding.mouseButtons?.some((button) => this.mouseButtons.has(button))) value = 1;
 
       for (const pad of pads) {
@@ -61,6 +63,7 @@ export class BrowserInputSource {
       values.set(binding.action, value);
     }
 
+    this.taps.clear();
     return values;
   }
 }

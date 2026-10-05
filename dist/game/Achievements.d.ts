@@ -21,4 +21,10 @@ export declare class AchievementManager {
     register(definitions: readonly AchievementDefinition[]): void;
     unlock(id: string): Promise<boolean>;
     has(id: string): boolean;
+    snapshot(): {
+        unlocked: string[];
+    };
+    hydrate(state: {
+        unlocked?: readonly string[];
+    }): void;
 }

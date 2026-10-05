@@ -1,8 +1,14 @@
 import { BrowserStorage } from "../platform/browser/BrowserStorage.js";
 import { BrowserInputSource } from "../platform/browser/BrowserInputSource.js";
 import { BrowserPlatform } from "../platform/browser/BrowserPlatform.js";
+import { BrowserInputFamilyDetector } from "../platform/browser/InputFamilyDetector.js";
+import { installMobileViewportPolicy } from "../platform/browser/MobileViewport.js";
+import { PWAController } from "../pwa/PWAController.js";
 import { SettingsStore } from "../persistence/SettingsStore.js";
 import { SLUWebShell } from "../Shell.js";
+import { AudioLifecycleCoordinator } from "../audio/AudioLifecycle.js";
+import { AudioMixer } from "../audio/AudioMixer.js";
+import { bindAudioSettings } from "../audio/AudioSettingsSync.js";
 import { AssemblyComposer } from "../assemblies/AssemblyComposer.js";
 import { DOMGameUI } from "../ui-shell/DOMGameUI.js";
 import { createDefaultScreens } from "../ui-shell/defaultScreens.js";
@@ -12,6 +18,7 @@ export async function createGameApp(options) {
     const storage = new BrowserStorage(options.gameId);
     const settings = SettingsStore.core(storage);
     await settings.load();
+    const removeViewportPolicy = options.mobileViewport === false ? null : installMobileViewportPolicy(options.mobileViewport ?? {});
     const shell = new SLUWebShell({
         build: {
             gameId: options.gameId,
@@ -19,7 +26,8 @@ export async function createGameApp(options) {
             version: options.version
         },
         renderer: options.renderer,
-        settings
+        settings,
+        production: options.production
     });
     const composer = new AssemblyComposer(shell);
     const assemblies = options.assemblies.map((factory) => factory(shell));
@@ -45,7 +53,7 @@ export async function createGameApp(options) {
         onBack: (screen) => flow.onBack(screen)
     });
     ui.register(screenModels);
-    flow = new GameFlowController(shell, ui, caps);
+    flow = new GameFlowController(shell, ui, caps, options.flow);
     const bindings = [
         { action: "ui_up", keyboard: ["ArrowUp", "KeyW"], gamepadButtons: [12] },
         { action: "ui_down", keyboard: ["ArrowDown", "KeyS"], gamepadButtons: [13] },
@@ -58,6 +66,29 @@ export async function createGameApp(options) {
     shell.input.setBindings(bindings);
     const source = new BrowserInputSource(bindings);
     source.attach();
+    const inputFamily = new BrowserInputFamilyDetector({ onChange: (family) => {
+            shell.production.glyphs.setFamily(family);
+            shell.studio.telemetry.record("input.family", { family });
+        } });
+    inputFamily.attach();
+    shell.production.glyphs.setFamily(inputFamily.activeFamily);
+    const audioMixer = options.audio ? new AudioMixer(options.audio) : null;
+    const unbindAudioSettings = audioMixer ? bindAudioSettings(settings, audioMixer) : null;
+    const audioLifecycle = options.audio ? new AudioLifecycleCoordinator(options.audio) : null;
+    audioLifecycle?.installVisibility();
+    shell.events.on("game:pause", () => audioLifecycle?.setGamePaused(true));
+    shell.events.on("game:resume", () => audioLifecycle?.setGamePaused(false));
+    shell.events.on("game:quit", () => audioLifecycle?.setGamePaused(false));
+    const pwa = options.pwa === false ? null : new PWAController();
+    pwa?.attach();
+    pwa?.events.on("pwa:online", () => shell.studio.telemetry.record("pwa.online"));
+    pwa?.events.on("pwa:offline", () => shell.studio.telemetry.record("pwa.offline"));
+    pwa?.events.on("pwa:install-available", () => shell.studio.telemetry.record("pwa.install_available"));
+    pwa?.events.on("pwa:installed", () => shell.studio.telemetry.record("pwa.installed"));
+    pwa?.events.on("pwa:update-ready", () => shell.studio.telemetry.record("pwa.update_ready"));
+    if (pwa && options.pwa && options.pwa.serviceWorkerUrl) {
+        void pwa.register(options.pwa.serviceWorkerUrl, options.pwa.scope ? { scope: options.pwa.scope } : undefined).catch(error => shell.studio.diagnostics.capture(error, { scope: "pwa.register" }));
+    }
     const platform = new BrowserPlatform();
     platform.onResize((width, height, dpr) => options.renderer.resize?.(width, height, dpr));
     platform.onVisibilityChange((hidden) => {
@@ -66,6 +97,7 @@ export async function createGameApp(options) {
     });
     const poll = () => {
         shell.input.update(source.poll());
+        inputFamily.sampleGamepads();
         if (shell.input.wasPressed("pause") && shell.session.phase === "playing")
             flow.showPause();
         requestAnimationFrame(poll);
@@ -74,5 +106,5 @@ export async function createGameApp(options) {
     await shell.boot();
     ui.startInputLoop();
     flow.start();
-    return { shell, composer, ui, flow, storage, settings };
+    return { shell, composer, ui, flow, storage, settings, audioMixer, audioLifecycle, unbindAudioSettings, inputFamily, pwa, removeViewportPolicy };
 }

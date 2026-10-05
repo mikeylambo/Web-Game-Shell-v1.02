@@ -40,6 +40,13 @@ export class CheckpointManager {
         return checkpoint ? structuredClone(checkpoint) : null;
     }
     active() { return this.activeId; }
+    snapshot() { return { activeId: this.activeId, checkpoints: [...this.checkpoints.values()].map(item => structuredClone(item)) }; }
+    hydrate(snapshot) {
+        this.checkpoints.clear();
+        for (const checkpoint of snapshot.checkpoints ?? [])
+            this.checkpoints.set(checkpoint.id, structuredClone(checkpoint));
+        this.activeId = snapshot.activeId && this.checkpoints.has(snapshot.activeId) ? snapshot.activeId : null;
+    }
     clear() {
         this.checkpoints.clear();
         this.activeId = null;

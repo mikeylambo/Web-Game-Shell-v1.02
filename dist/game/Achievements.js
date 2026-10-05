@@ -21,4 +21,8 @@ export class AchievementManager {
         return true;
     }
     has(id) { return this.unlocked.has(id); }
+    snapshot() { return { unlocked: [...this.unlocked] }; }
+    hydrate(state) { this.unlocked.clear(); for (const id of state.unlocked ?? [])
+        if (this.definitions.has(id))
+            this.unlocked.add(id); }
 }

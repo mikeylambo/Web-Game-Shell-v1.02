@@ -10,6 +10,10 @@ export interface CheckpointEvents<T = unknown> {
     "checkpoints:cleared": undefined;
     [key: string]: unknown;
 }
+export interface CheckpointSnapshot<T = unknown> {
+    activeId: string | null;
+    checkpoints: Checkpoint<T>[];
+}
 export declare class CheckpointManager<TState = unknown> {
     private readonly capture?;
     private readonly restore?;
@@ -21,5 +25,7 @@ export declare class CheckpointManager<TState = unknown> {
     restoreCheckpoint(id?: string | null, restore?: ((state: TState) => void) | undefined): boolean;
     get(id: string): Checkpoint<TState> | null;
     active(): string | null;
+    snapshot(): CheckpointSnapshot<TState>;
+    hydrate(snapshot: Partial<CheckpointSnapshot<TState>>): void;
     clear(): void;
 }

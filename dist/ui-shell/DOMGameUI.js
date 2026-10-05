@@ -27,9 +27,22 @@ export class DOMGameUI {
         const current = this.screens.get(id);
         if (!current)
             throw new Error(`Unknown UI screen: ${id}`);
-        this.screens.set(id, { ...current, ...structuredClone(patch) });
-        if (this.active?.id === id)
-            this.show(id);
+        const focusedChoiceId = this.active?.id === id
+            ? this.enabledChoices()[this.focusIndex]?.dataset.choiceId ?? null
+            : null;
+        const next = { ...current, ...structuredClone(patch) };
+        this.screens.set(id, next);
+        if (this.active?.id === id) {
+            this.active = structuredClone(next);
+            const enabled = (next.choices ?? []).filter((choice) => !choice.disabled);
+            const preservedIndex = focusedChoiceId
+                ? enabled.findIndex((choice) => choice.id === focusedChoiceId)
+                : -1;
+            this.focusIndex = preservedIndex >= 0
+                ? preservedIndex
+                : Math.min(this.focusIndex, Math.max(0, enabled.length - 1));
+            this.render();
+        }
     }
     startInputLoop() {
         if (!this.options.input || this.frameHandle)

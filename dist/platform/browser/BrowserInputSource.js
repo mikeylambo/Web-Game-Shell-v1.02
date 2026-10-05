@@ -1,6 +1,7 @@
 export class BrowserInputSource {
     bindings;
     keys = new Set();
+    taps = new Set();
     mouseButtons = new Set();
     connected = false;
     constructor(bindings) {
@@ -10,12 +11,14 @@ export class BrowserInputSource {
         if (this.connected)
             return () => { };
         this.connected = true;
-        const keyDown = (e) => this.keys.add(e.code);
+        const keyDown = (e) => { if (!this.keys.has(e.code))
+            this.taps.add(e.code); this.keys.add(e.code); };
         const keyUp = (e) => this.keys.delete(e.code);
         const mouseDown = (e) => this.mouseButtons.add(e.button);
         const mouseUp = (e) => this.mouseButtons.delete(e.button);
         const blur = () => {
             this.keys.clear();
+            this.taps.clear();
             this.mouseButtons.clear();
         };
         target.addEventListener("keydown", keyDown);
@@ -37,7 +40,7 @@ export class BrowserInputSource {
         const pads = navigator.getGamepads?.() ?? [];
         for (const binding of this.bindings) {
             let value = 0;
-            if (binding.keyboard?.some((code) => this.keys.has(code)))
+            if (binding.keyboard?.some((code) => (this.keys.has(code) || this.taps.has(code))))
                 value = 1;
             if (binding.mouseButtons?.some((button) => this.mouseButtons.has(button)))
                 value = 1;
@@ -56,6 +59,7 @@ export class BrowserInputSource {
             }
             values.set(binding.action, value);
         }
+        this.taps.clear();
         return values;
     }
 }

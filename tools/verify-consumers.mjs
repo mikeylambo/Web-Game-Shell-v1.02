@@ -8,7 +8,7 @@ const root = process.cwd();
 const generator = path.join(root, "tools", "create-slu-game.mjs");
 const certifier = path.join(root, "tools", "slu-certify.mjs");
 const distPackage = root;
-const renderers = ["three", "babylon", "phaser", "canvas2d", "dom"];
+const renderers = ["three", "babylon", "phaser", "canvas2d", "dom", "pixi"];
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -39,7 +39,7 @@ try {
       "--id", `consumer-${renderer}`,
       "--name", `Consumer ${renderer}`,
       "--renderer", renderer,
-      "--frames", renderer === "three" ? "arcade,vehicle" : "arcade",
+      "--frames", renderer === "three" ? "arcade,vehicle" : renderer === "pixi" ? "survivor" : "arcade",
       "--out", out
     ]);
 

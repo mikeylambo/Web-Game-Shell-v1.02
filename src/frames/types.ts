@@ -1,7 +1,7 @@
 import type { ModeDefinition } from "../game/Modes.js";
 import type { DifficultyProfile } from "../game/Difficulty.js";
 
-export type FrameId =
+export type FrameId = "survivor"
   | "arcade"
   | "character-action"
   | "arena-combat"

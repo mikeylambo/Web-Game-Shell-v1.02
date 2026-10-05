@@ -103,3 +103,6 @@ export * from "./generator/index.js";
 export * from "./ui-shell/index.js";
 export * from "./bootstrap/index.js";
 export * from "./assemblies/capabilities.js";
+export * from "./adapters/pixi/PixiAdapter.js";
+export * from "./modules/horde/Horde.js";
+export * from "./assemblies/survivor.js";

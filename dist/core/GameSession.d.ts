@@ -1,5 +1,6 @@
 import { EventBus } from "./EventBus.js";
 import type { GamePhase } from "./types.js";
+import type { PhasePolicy } from "./PhasePolicy.js";
 export interface SessionEvents {
     "phase:changed": {
         from: GamePhase;
@@ -19,6 +20,8 @@ export declare class GameSession {
     phase: GamePhase;
     startedAt: number;
     endedAt: number;
+    private phasePolicy;
+    usePhasePolicy(policy: PhasePolicy | null): void;
     start(now?: number): void;
     setPhase(next: GamePhase): void;
     pause(): void;

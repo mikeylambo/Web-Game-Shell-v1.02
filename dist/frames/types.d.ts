@@ -1,6 +1,6 @@
 import type { ModeDefinition } from "../game/Modes.js";
 import type { DifficultyProfile } from "../game/Difficulty.js";
-export type FrameId = "arcade" | "character-action" | "arena-combat" | "vehicle" | "fps" | "puzzle" | "rpg" | "strategy" | "platformer" | "party-multiplayer";
+export type FrameId = "survivor" | "arcade" | "character-action" | "arena-combat" | "vehicle" | "fps" | "puzzle" | "rpg" | "strategy" | "platformer" | "party-multiplayer" | "companion-adventure";
 export type FlowPhase = "boot" | "front" | "setup" | "play" | "post" | "utility";
 export interface FlowStep {
     id: string;
